@@ -684,8 +684,50 @@ def _estimate_cost(model_id: str, tokens_input: int, tokens_output: int) -> Opti
 # ── Database ──────────────────────────────────────────────────────────────────
 
 
+def _is_pg(c) -> bool:
+    """True when ``c`` is the PostgreSQL connection wrapper."""
+    return type(c).__name__ == "_PGWrapper"
+
+
+def _column_exists(c, table: str, col: str) -> bool:
+    """Whether ``table.col`` is already present, without provoking an error.
+
+    Asking first matters on PostgreSQL. A statement that fails there aborts the
+    entire surrounding transaction, and every later statement in it raises
+    InFailedSqlTransaction. Catching the ALTER's "already exists" error after
+    the fact is therefore not enough — by then the transaction is unusable, and
+    the *next* migration statement dies with an unrelated message. SQLite has no
+    such behaviour, which is why this only ever surfaced against Postgres.
+    """
+    if _is_pg(c):
+        rows = c.fetchall(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = current_schema() "
+            "AND table_name = ? AND column_name = ?",
+            (table, col),
+        )
+        return bool(rows)
+    rows = c.fetchall(f"PRAGMA table_info({table})")
+    names = set()
+    for r in rows:
+        try:
+            names.add(r["name"])
+        except (TypeError, IndexError, KeyError):
+            if len(r) > 1:
+                names.add(r[1])
+    return col in names
+
+
 def _add_column(c, table: str, col: str, typedef: str):
-    """Helper: add a column, silently ignoring 'already exists' errors."""
+    """Add a column when it isn't already there.
+
+    Several columns are created by ``_init()``'s CREATE TABLE *and* re-added by
+    an older migration. That is harmless on SQLite but fatal on PostgreSQL, so
+    the existence check above runs first. The try/except is retained only as a
+    backstop for races and for dialects where the catalog lookup is unavailable.
+    """
+    if _column_exists(c, table, col):
+        return
     try:
         c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}")
     except Exception as e:
@@ -1058,15 +1100,29 @@ def _migration_v12(c):
     follow-up: it requires every read path for those columns to go through
     ``_json_load`` first, and should be validated against a live PostgreSQL in CI.
     """
-    if type(c).__name__ != "_PGWrapper":
+    if not _is_pg(c):
         return  # SQLite keeps JSON as TEXT — nothing to do.
+    # Look before leaping: on PostgreSQL a failed statement aborts the whole
+    # transaction, so a swallowed exception here would break every statement
+    # that follows in this migration.
+    rows = c.fetchall(
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_schema = current_schema() "
+        "AND table_name = 'audit_log' AND column_name = 'detail'"
+    )
+    if not rows:
+        return  # table or column absent — nothing to convert
+    row = rows[0]
     try:
-        c.execute(
-            "ALTER TABLE audit_log ALTER COLUMN detail TYPE JSONB "
-            "USING detail::jsonb"
-        )
-    except Exception:  # pragma: no cover - already JSONB, or table absent
-        pass
+        current = row["data_type"]
+    except (TypeError, IndexError, KeyError):
+        current = row[0]
+    if str(current).lower() == "jsonb":
+        return  # already converted
+    c.execute(
+        "ALTER TABLE audit_log ALTER COLUMN detail TYPE JSONB "
+        "USING detail::jsonb"
+    )
 
 
 def _migration_v13(c):
