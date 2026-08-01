@@ -45,8 +45,10 @@ class ComplianceReportRequest(BaseModel):
     framework: RegulatoryFramework = Field(
         ...,
         description=(
-            "Framework to assess against: sr_11_7, eu_ai_act, pra_ss1_23, cbuae "
-            "(2026 AI guidance), or cbuae_mms (2022 Model Management Standards)."
+            "Framework to assess against: cbuae (2026 AI guidance), cbuae_mms "
+            "(2022 Model Management Standards), uae_enabling_tech (2021 Joint "
+            "Guidelines), eu_ai_act, sr_26_2 (US, supersedes SR 11-7), or "
+            "pra_ss1_23."
         ),
     )
     statistical_comparisons: Optional[List[ScorePair]] = None

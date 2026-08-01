@@ -4,7 +4,7 @@
 
 Validate AI/LLM models against the regulations that bind you — the UAE's CBUAE regimes first, with the EU AI Act, US SR 26-2, and UK PRA as options — with defensible statistics, bias and hallucination testing, independent human review, and regulator-ready validation memoranda. All on your own infrastructure, with no data leaving your network — the deployment model UAE banking-data-localization rules require.
 
-[![CI](https://github.com/forkmark/forkmark/actions/workflows/ci.yml/badge.svg)](https://github.com/forkmark/forkmark/actions)
+[![CI](https://github.com/forkmark/forkmark_banking/actions/workflows/ci.yml/badge.svg)](https://github.com/forkmark/forkmark_banking/actions)
 
 ---
 
@@ -16,18 +16,18 @@ ForkMark provides the evaluation, statistics, evidence capture, and reporting to
 
 ## Regulatory context
 
-ForkMark is **UAE-first**. It is designed around six model risk management / AI governance regimes — the three UAE regimes lead, with the EU, US, and UK offered as additional coverage. The requirement metadata is encoded in the platform (`core/regulatory_frameworks.py`) and drives coverage tracking and validation memos. This is engineering guidance, not legal advice.
+ForkMark is **UAE-first**. It is designed around six model risk management / AI governance regimes — the three UAE regimes lead, with the EU, US, and UK offered as additional coverage. The requirement metadata is encoded in the platform (`core/regulatory_frameworks.py`) as a set of required evidence artifacts per framework, and drives coverage tracking and validation memos. Mapping is at the requirement/artifact level rather than clause-by-clause. This is engineering guidance, not legal advice.
 
 | Framework | Jurisdiction | Focus |
 |---|---|---|
 | **CBUAE MMS** | 🇦🇪 UAE (Central Bank of the UAE) | The binding **Model Management Standards & Guidance (2022)** — the lifecycle model-risk regime every UAE bank is examined against: model inventory, materiality tiering, development, independent validation, ongoing monitoring, governance, and data management. |
-| **CBUAE AI Guidance** | 🇦🇪 UAE (Central Bank of the UAE) | Responsible-AI guidance for licensed financial institutions (2026): governance, fairness, transparency, human oversight, and data privacy — including consumer disclosure and explainability in **Arabic and English**, with accountability retained even for third-party/cloud models. |
+| **CBUAE AI Guidance** | 🇦🇪 UAE (Central Bank of the UAE) | The **Guidance Note on Artificial Intelligence and Machine Learning (11 February 2026)**, read with the binding MMS. It brings AI systems inside the model-risk perimeter, and sets five principles: governance, fairness, transparency, human oversight, and data privacy — including consumer disclosure and explainability in **Arabic and English**, with accountability retained even for third-party/cloud models. This is ForkMark's lead framework. |
 | **UAE Joint Guidelines** | 🇦🇪 UAE (CBUAE · SCA · DFSA/DIFC · FSRA/ADGM) | *Guidelines for Financial Institutions Adopting Enabling Technologies* (2021), issued jointly across the UAE's financial regulators: AI governance, model validation, material-application registries with version control, and vendor due diligence — one mapping across mainland, DIFC, and ADGM. |
 | **EU AI Act** | 🇪🇺 European Union | Obligations for high-risk AI systems: risk management, data governance, technical documentation, record-keeping, transparency, human oversight, accuracy/robustness, mandatory bias testing, and CE marking. |
-| **SR 26-2** | 🇺🇸 US (Fed / OCC / FDIC) | The current US model-risk standard (2026), **superseding SR 11-7** — risk-based and materiality-sensitive. Notably it **excludes generative and agentic AI**, leaving the AI-model governance gap ForkMark is built to fill. |
+| **SR 26-2** | 🇺🇸 US (Fed / OCC / FDIC) | The current US model-risk standard (interagency, 17 April 2026), **superseding SR 11-7** — risk-based and materiality-sensitive. Notably it **excludes generative and agentic AI** as "novel and rapidly evolving", leaving the AI-model governance gap ForkMark is built to fill. Unlike the CBUAE Standards it is **guidance rather than a binding rule**. |
 | **PRA SS1/23** | 🇬🇧 UK (Bank of England / PRA) | Technology-agnostic, outcomes-focused MRM principles (in force since 2024): model identification and risk tiering, governance, development, independent validation, and risk mitigants. |
 
-**On the EU AI Act timeline.** The AI Act entered into force on 1 August 2024. Obligations for Annex III (use-case) high-risk systems were originally scheduled to apply from 2 August 2026; under the 2026 *Digital Omnibus* simplification package they were deferred to 2 December 2027. Firms should confirm the current applicability date for their systems — ForkMark helps you build the conformity evidence (technical documentation, bias testing, human-oversight records) these obligations require, whatever the effective date.
+**On the EU AI Act timeline.** The AI Act entered into force on 1 August 2024. Obligations for Annex III (use-case) high-risk systems were originally scheduled to apply from 2 August 2026; under the 2026 *Digital Omnibus* simplification package they were deferred to 2 December 2027, and high-risk AI embedded in regulated products under Annex I to 2 August 2028. The Article 50 transparency duties and the Article 4 AI-literacy duty were **not** deferred and remain due from 2 August 2026. Firms should confirm the current applicability date for their systems — ForkMark helps you build the conformity evidence (technical documentation, bias testing, human-oversight records) these obligations require, whatever the effective date.
 
 ## Who this is for
 
@@ -48,8 +48,8 @@ ForkMark is deliberately narrow. It is **not** a good fit for:
 ## Quick start (Docker)
 
 ```bash
-git clone https://github.com/forkmark/forkmark.git
-cd forkmark
+git clone https://github.com/forkmark/forkmark_banking.git
+cd forkmark_banking
 
 # 1) Set a bootstrap token used to mint your first API key.
 echo "FM_BOOTSTRAP_TOKEN=$(openssl rand -hex 16)" > .env
@@ -77,16 +77,35 @@ Open **http://localhost:7700**, go to **API Keys / Settings**, and paste the ret
 
 | ForkMark capability | What it produces | Supports |
 |---|---|---|
-| **Model inventory** (`/inventory`) | Risk-tiered system of record with owner, frameworks, and validation dates | SR 11-7 model inventory; PRA SS1/23 Principle 1 (identification & tiering) |
-| **Statistical analysis** (`/statistics`) | Win rate + Wilson CI, Welch's t-test, Cohen's d, Benjamini-Hochberg FDR, power/MDE | SR 11-7 & PRA SS1/23 outcomes analysis; EU AI Act accuracy evidence |
-| **Bias & fairness evaluator** | Cross-group disparity ratio with a configurable threshold | EU AI Act bias testing; CBUAE fairness |
+| **Model inventory** (`/inventory`) | Risk-tiered system of record with owner, frameworks, and validation dates | CBUAE MMS & AI Guidance model inventory; SR 26-2 inventory; PRA SS1/23 Principle 1 (identification & tiering) |
+| **Statistical analysis** (`/statistics`) | Win rate + Wilson CI, **paired t-test with paired Cohen's d_z** (default), Welch's independent-samples t-test with pooled *d* (opt-in), Benjamini-Hochberg FDR, power/MDE | SR 26-2 & PRA SS1/23 outcomes analysis; EU AI Act accuracy evidence |
+| **Champion vs. challenger** | The live model retained as the baseline and re-tested against a proposed version | CBUAE re-testing on every model upgrade; ongoing monitoring |
+| **Bias & fairness evaluator** | Cross-group disparity ratio with a configurable threshold | EU AI Act bias testing; CBUAE fairness principle |
 | **Numerical fidelity evaluator** | Flags fabricated/altered figures vs. a source document | Accuracy / robustness; guards against material misstatement |
 | **Consistency evaluator** | Output stability (coefficient of variation) across paraphrases | Robustness of compliance-critical decisions |
-| **Human review capture** | Structured decisions with confidence and rationale | SR 11-7 effective challenge; EU AI Act / CBUAE human oversight |
-| **Regulatory coverage** (`/regulatory`) | Present vs. missing evidence artifacts per framework | Documentation completeness across all five regimes |
-| **Access control & audit** (RBAC + `/audit/log`) | Role-scoped API keys (viewer/reviewer/admin) and an append-only audit trail of supervisory mutations | Segregation of duties and auditability (SR 11-7 governance; CBUAE MMS) |
+| **Human review capture** | Structured decisions with confidence and rationale | SR 26-2 effective challenge; EU AI Act / CBUAE human oversight |
+| **Bilingual disclosure** | Validation memoranda with an **Arabic and English** executive summary, generated in-app | CBUAE transparency/explainability expectation for AI-assisted decisions |
+| **Regulatory coverage** (`/regulatory`) | Present vs. missing evidence artifacts per framework | Documentation completeness across all six regimes |
+| **Access control & audit** (RBAC + `/audit/log`) | Role-scoped API keys (viewer/reviewer/admin) and an append-only audit trail of supervisory mutations | Segregation of duties and auditability (SR 26-2 governance; CBUAE MMS) |
 | **Validation memos** (`/compliance`) | 9-section validation memorandum as JSON or `.docx` | The written validation record a supervisor expects |
 | **Revalidation calendar** | Models due for revalidation within a window | Ongoing monitoring and periodic revalidation |
+
+## What is built, and what is not
+
+The CBUAE's February 2026 AI guidance sets eight testable obligations for licensed institutions. Six are addressed by capabilities that compute today. Two are not built yet, and are listed here rather than implied by omission.
+
+| Obligation under the Feb 2026 guidance | ForkMark | Status |
+|---|---|---|
+| Inventory of every AI system, with a risk rating | Model inventory with risk tiers, linked to each validation run | **Built** |
+| Bias tested periodically and on every upgrade | Group-disparity evaluator; champion-vs-challenger re-run per version | **Built** |
+| No unsupported or ungrounded outputs | Numerical fidelity evaluator against a source document | **Built** |
+| Meaningful human oversight and challenge | Human review capture with rationale and attribution | **Built** |
+| Data provenance and audit trails | Append-only audit log with role-based access control | **Built** |
+| Disclosure in Arabic and English | Bilingual executive summary in the generated memorandum | **Built** |
+| Stress-testing and continuous monitoring | Safety / jailbreak suite and drift monitoring | *Not built* |
+| Vendor AI held to the in-house standard | Native connectors for vendor and sovereign models (Jais, Falcon, GPT) | *Not built* |
+
+Vendor models can still be evaluated today by streaming their outputs in through the SDK; what is missing is first-class connectors. See `examples/jais_banking_demo/` and `examples/adverse_action_demo/` for a worked end-to-end validation on an Arabic retail-banking assistant.
 
 ## SDK integration
 
@@ -126,7 +145,7 @@ Full REST API with OpenAPI docs at **`/docs`** (all regulatory, inventory, stati
 
 To avoid confusion between what runs now and what is planned, ForkMark is explicit about scope:
 
-**Ships today (open-source edition):** the single-process FastAPI app on SQLite/PostgreSQL; the full model-risk core (inventory, statistics, evaluators, regulatory coverage for all five regimes, validation memos); secure-by-default API-key auth **with role-based access control** (viewer/reviewer/admin) and an **append-only audit log** (`/api/audit/log`); in-process background scoring; and optional Redis-backed caching/rate-limiting.
+**Ships today (open-source edition):** the single-process FastAPI app on SQLite/PostgreSQL; the full model-risk core (inventory, statistics, evaluators, regulatory coverage for all six regimes, bilingual validation memos); secure-by-default API-key auth **with role-based access control** (viewer/reviewer/admin) and an **append-only audit log** (`/api/audit/log`); in-process background scoring; and optional Redis-backed caching/rate-limiting.
 
 **Enterprise roadmap (opt-in via `FM_ENTERPRISE_MODE`, in the `ee/` package):** multi-tenant workspace isolation, SCIM/SSO provisioning, device-flow auth, data-residency routing, a Redis message bus, Celery workers, and OpenTelemetry observability. These load on a best-effort basis and degrade gracefully when their optional services (PostgreSQL, Redis, WorkOS) are absent; the platform guide's scaling sections describe this target architecture, not the default self-host.
 
