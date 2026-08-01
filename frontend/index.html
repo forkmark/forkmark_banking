@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ForkMark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      /* Institutional light theme is the first-paint default — the palette a
+         regulated-finance buyer expects (bright offices, print, committee decks).
+         Dark mode remains available via Settings. */
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fa; --surface: #ffffff; --surface2: #eef1f6;
+        --border: #d6dae3; --accent: #1f5fa8; --green: #157347;
+        --orange: #b45309; --red: #b42318; --purple: #6d4aa3;
+        --text: #16202e; --muted: #5a6473;
+        --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      }
+      /* Tabular figures so financial numbers align in tables, stat cards, and matrices. */
+      body { background: var(--bg); color: var(--text); font-family: var(--font); font-variant-numeric: tabular-nums; }
+      button { cursor: pointer; font-family: var(--font); }
+      input, textarea, select { font-family: var(--font); }
+      a { color: var(--accent); text-decoration: none; }
+      /* Visible focus ring for keyboard navigation (WCAG 2.1 AA) */
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+      /* ── Responsive breakpoints ────────────────────────────────────── */
+      @media (max-width: 1100px) {
+        /* Stack BranchCompare: comparison + decision panel side-by-side → vertical */
+        [data-layout="compare"] { grid-template-columns: 1fr !important; }
+        /* Stat cards: 4/5-col → 2-col on narrower screens */
+        [data-layout="stats"] { grid-template-columns: repeat(2, 1fr) !important; }
+      }
+      @media (max-width: 900px) {
+        #root > div > main { padding: 16px !important; }
+      }
+      @media (max-width: 600px) {
+        #root > div > main { padding: 12px !important; }
+        /* Stat cards: 2-col → 1-col */
+        [data-layout="stats"] { grid-template-columns: 1fr !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

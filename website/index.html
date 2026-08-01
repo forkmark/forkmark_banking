@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ForkMark — validation evidence for the AI your bank runs</title>
+<meta name="description" content="ForkMark is a model validation platform for AI systems. It installs on your own servers, tests the models you have in production, records reviewer sign-off, and generates a CBUAE-mapped validation memorandum. No prompt or output leaves your network." />
+<meta property="og:title" content="ForkMark — validation evidence for the AI your bank runs" />
+<meta property="og:description" content="Self-hosted AI model validation for regulated financial institutions. CBUAE clause-mapped. Source available under MIT." />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#0b1b2d" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1b2d'/%3E%3Cg fill='none' stroke='%237fb3e8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 16h5'/%3E%3Cpath d='M14 16c4 0 3-6 8-6'/%3E%3Cpath d='M14 16c4 0 3 6 8 6'/%3E%3C/g%3E%3Ccircle cx='9' cy='16' r='2.3' fill='%237fb3e8'/%3E%3Ccircle cx='22' cy='10' r='2.3' fill='%236ddba5'/%3E%3Ccircle cx='22' cy='22' r='2.3' fill='%237fb3e8'/%3E%3C/svg%3E" />
+<style>
+  /*  Typography and colour notes
+      ---------------------------------------------------------------
+      Fonts: system stack only. No webfont request leaves the visitor's
+      machine, so the page renders identically inside a bank network
+      under a strict content-security policy.
+      Colour: navy is the brand. Green, amber and red are reserved
+      exclusively for status semantics (RAG), so a status colour never
+      competes with a brand colour. All text pairs meet WCAG 2.2 AA.
+  */
+  :root{
+    --ink:#0b1b2d;
+    --ink-2:#12283f;
+    --ink-line:rgba(255,255,255,.13);
+    --paper:#ffffff;
+    --paper-2:#f5f7f9;
+    --line:#dfe5ea;
+    --text:#16232f;
+    --muted:#475866;
+    --muted-dk:#93a8bb;
+    --faint-dk:#8095a8;
+    --brand:#14477d;
+    --brand-dk:#0f3760;
+    --brand-hi:#7fb3e8;
+    --ok:#1c6b46;      --ok-bg:#e8f4ee;    --ok-dk:#6ddba5;
+    --warn:#8a5216;    --warn-bg:#fbf1e4;  --warn-dk:#e8b168;
+    --bad:#a32b1f;     --bad-bg:#fcecea;   --bad-dk:#f0a99b;
+    --radius:10px;
+    --maxw:1120px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--sans);color:var(--text);background:var(--paper);
+    -webkit-font-smoothing:antialiased;line-height:1.62;font-size:16.5px}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,h4{font-family:var(--sans);font-weight:650;line-height:1.2;letter-spacing:-.018em;margin:0}
+  p{margin:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--brand);margin:0 0 14px;font-family:var(--mono)}
+  .eyebrow.on-dark{color:var(--brand-hi)}
+  .clause{font-family:var(--mono);font-size:12.5px;letter-spacing:0;color:var(--brand)}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-weight:600;
+    font-size:15px;padding:12px 20px;border-radius:7px;cursor:pointer;border:1.5px solid transparent;
+    transition:background .14s ease,border-color .14s ease,color .14s ease}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{background:var(--brand-dk)}
+  .btn-ghost{background:transparent;border-color:rgba(255,255,255,.32);color:#fff}
+  .btn-ghost:hover{border-color:#fff;background:rgba(255,255,255,.07)}
+  .btn-line{background:transparent;border-color:var(--line);color:var(--text)}
+  .btn-line:hover{border-color:var(--brand);color:var(--brand)}
+
+  header.nav{position:sticky;top:0;z-index:50;background:var(--ink);border-bottom:1px solid var(--ink-line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:60px;gap:20px}
+  .brand{display:flex;align-items:center;gap:10px;color:#fff}
+  .brand .mark{width:27px;height:27px;flex:0 0 auto}
+  .brand .name{font-size:19px;font-weight:680;letter-spacing:-.02em}
+  .nav-links{display:flex;align-items:center;gap:26px}
+  .nav-links a{color:#b8c8d6;font-size:14px;font-weight:500}
+  .nav-links a:hover{color:#fff}
+  .nav .btn{padding:9px 16px;font-size:14px}
+
+  /* Hero */
+  .hero{background:var(--ink);color:#fff;border-bottom:1px solid var(--ink-line)}
+  .hero-in{padding:70px 0 0}
+  .hero h1{font-size:clamp(31px,4.4vw,46px);max-width:17ch;font-weight:700;letter-spacing:-.028em}
+  .hero-sub{margin:22px 0 26px;font-size:18px;line-height:1.6;color:#c2d2e0;max-width:60ch}
+  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .trust-row{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:26px;font-size:13.5px;color:var(--muted-dk)}
+  .trust-row span{display:inline-flex;align-items:center;gap:7px}
+  .trust-row .tick{color:var(--ok-dk);font-family:var(--mono)}
+  .shot{margin-top:52px;border-radius:10px 10px 0 0;overflow:hidden;
+    border:1px solid rgba(255,255,255,.16);border-bottom:0;background:#fff;
+    box-shadow:0 -1px 0 rgba(255,255,255,.06),0 40px 90px -40px rgba(0,0,0,.75)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot-cap{font-size:12.5px;color:var(--faint-dk);padding:12px 2px 0;font-family:var(--mono);letter-spacing:.02em}
+
+  section{padding:76px 0}
+  .lede{max-width:64ch}
+  .lede h2{font-size:clamp(24px,3.1vw,33px)}
+  .lede p{margin-top:16px;font-size:17.5px;color:var(--muted)}
+  .alt{background:var(--paper-2)}
+  .dark{background:var(--ink);color:#dfe8f0}
+  .dark h2,.dark h3{color:#fff}
+  .dark .lede p{color:var(--muted-dk)}
+  .note{font-size:13px;color:var(--muted);line-height:1.55;margin-top:22px;max-width:90ch}
+  .dark .note{color:var(--faint-dk)}
+  .prose p{font-size:17.5px;color:var(--muted);max-width:66ch}
+  .prose p + p{margin-top:16px}
+
+  .grid{display:grid;gap:18px}
+  .g-2{grid-template-columns:repeat(2,1fr)}
+  .g-3{grid-template-columns:repeat(3,1fr)}
+  .g-4{grid-template-columns:repeat(4,1fr)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+  .alt .card{background:#fff}
+  .card h3{font-size:17px;margin-bottom:8px}
+  .card p{font-size:14.5px;color:var(--muted)}
+  .card .lbl{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.11em;
+    text-transform:uppercase;color:var(--brand);margin-bottom:11px}
+  .dark .card{background:var(--ink-2);border-color:var(--ink-line)}
+  .dark .card p{color:var(--muted-dk)}
+  .dark .card .lbl{color:var(--brand-hi)}
+
+  /* Steps as a numbered rail */
+  .rail{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;background:#fff}
+  .rail-item{padding:24px;border-right:1px solid var(--line)}
+  .rail-item:last-child{border-right:0}
+  .rail-item .n{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--brand);letter-spacing:.1em;margin-bottom:11px}
+  .rail-item h3{font-size:16px;margin-bottom:7px}
+  .rail-item p{font-size:14px;color:var(--muted)}
+
+  /* Evidence split */
+  .ev{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  .ev-img{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+  .ev-img img{display:block;width:100%;height:auto}
+  .dl{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+  .memo-list{list-style:none;margin:18px 0 0;padding:0}
+  .memo-list li{position:relative;padding:0 0 11px 22px;font-size:15.5px;color:var(--muted)}
+  .memo-list li:before{content:"";position:absolute;left:0;top:9px;width:7px;height:7px;border-radius:1px;background:var(--brand)}
+
+  /* Coverage table */
+  .tbl-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+  table.obl{width:100%;border-collapse:collapse;font-size:14.5px}
+  table.obl th{text-align:left;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);background:var(--paper-2);padding:13px 18px;border-bottom:1px solid var(--line)}
+  table.obl td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--muted)}
+  table.obl tr:last-child td{border-bottom:0}
+  table.obl td.req{color:var(--text);font-weight:550;width:34%}
+  table.obl td.req .clause{display:block;margin-top:4px}
+  table.obl td.st{width:14%;white-space:nowrap}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.09em;
+    padding:4px 9px;border-radius:4px;text-transform:uppercase}
+  .tag-live{background:var(--ok-bg);color:var(--ok);border:1px solid rgba(28,107,70,.24)}
+  .tag-build{background:var(--warn-bg);color:var(--warn);border:1px solid rgba(138,82,22,.24)}
+
+  /* Spec list */
+  .spec{border-top:1px solid var(--ink-line)}
+  .spec-row{display:grid;grid-template-columns:230px 1fr;gap:28px;padding:18px 0;border-bottom:1px solid var(--ink-line)}
+  .spec-row dt{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--brand-hi);padding-top:2px}
+  .spec-row dd{margin:0;font-size:15.5px;color:var(--muted-dk)}
+  .spec-row dd code{font-family:var(--mono);font-size:13.5px;background:rgba(255,255,255,.07);
+    padding:2px 6px;border-radius:4px;color:#dfe8f0}
+
+  .founder{display:grid;grid-template-columns:.85fr 1.15fr;gap:44px;align-items:start}
+
+  .cta{background:var(--ink);color:#fff}
+  .cta h2{font-size:clamp(26px,3.5vw,37px);color:#fff;max-width:22ch}
+  .cta p{margin:18px 0 28px;font-size:17.5px;color:var(--muted-dk);max-width:60ch}
+
+  footer{background:var(--ink);color:var(--muted-dk);padding:46px 0 36px;border-top:1px solid var(--ink-line)}
+  .foot-top{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start;
+    padding-bottom:26px;border-bottom:1px solid var(--ink-line)}
+  .foot-brand .name{font-size:19px;color:#fff;font-weight:680}
+  .foot-brand p{margin-top:9px;font-size:14px;max-width:44ch}
+  .foot-links{display:flex;gap:40px;flex-wrap:wrap}
+  .foot-col h4{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--faint-dk);margin:0 0 11px;font-weight:700}
+  .foot-col a,.foot-col span{display:block;font-size:14px;color:#b8c8d6;margin-bottom:8px}
+  .foot-col a:hover{color:#fff}
+  .disclaimer{margin-top:24px;font-size:12.5px;color:var(--faint-dk);line-height:1.6;max-width:96ch}
+  .copy{margin-top:14px;font-size:12.5px;color:var(--faint-dk)}
+
+  @media (max-width:980px){
+    .ev,.founder{grid-template-columns:1fr;gap:28px}
+    .g-3,.g-4{grid-template-columns:repeat(2,1fr)}
+    .rail{grid-template-columns:repeat(2,1fr)}
+    .rail-item{border-bottom:1px solid var(--line)}
+    .rail-item:nth-child(2){border-right:0}
+    .rail-item:nth-last-child(-n+2){border-bottom:0}
+    .spec-row{grid-template-columns:1fr;gap:6px}
+    .tbl-wrap{overflow-x:auto}
+    table.obl{min-width:640px}
+  }
+  @media (max-width:680px){
+    section{padding:56px 0}
+    .nav-links{display:none}
+    .g-2,.g-3,.g-4,.rail{grid-template-columns:1fr}
+    .rail-item{border-right:0}
+    .foot-top{flex-direction:column}
+    .hero-in{padding:52px 0 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="ForkMark home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="6" fill="#12283f"/>
+        <g fill="none" stroke="#7fb3e8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 16h5"/><path d="M14 16c4 0 3-6 8-6"/><path d="M14 16c4 0 3 6 8 6"/>
+        </g>
+        <circle cx="9" cy="16" r="2.3" fill="#7fb3e8"/>
+        <circle cx="22" cy="10" r="2.3" fill="#6ddba5"/>
+        <circle cx="22" cy="22" r="2.3" fill="#7fb3e8"/>
+      </svg>
+      <span class="name">ForkMark</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#coverage">CBUAE coverage</a>
+      <a href="#deploy">Deployment</a>
+      <a href="#source">Source</a>
+    </nav>
+    <a class="btn btn-primary" href="mailto:ambarmore1007@gmail.com?subject=ForkMark%20walkthrough">Book a walkthrough</a>
+  </div>
+</header>
+
+<div id="top"></div>
+<section class="hero" style="padding:0">
+  <div class="wrap hero-in">
+    <h1>Validation evidence for the AI your bank already runs.</h1>
+    <p class="hero-sub">ForkMark is a model validation platform for AI systems. It installs on your own servers, tests the models you have in production, records your reviewers' sign-off, and generates a CBUAE-mapped validation memorandum. No prompt, output or customer record leaves your network.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="mailto:ambarmore1007@gmail.com?subject=ForkMark%20walkthrough&amp;body=Hi%20Ambar%2C%20I%27d%20like%20a%20walkthrough%20of%20ForkMark.">Book a walkthrough</a>
+      <a class="btn btn-ghost" href="assets/ForkMark_Sample_Validation_Memo.pdf">Read a sample memorandum (PDF)</a>
+    </div>
+    <div class="trust-row">
+      <span><span class="tick">✓</span> Runs entirely on your infrastructure</span>
+      <span><span class="tick">✓</span> Source available under MIT</span>
+      <span><span class="tick">✓</span> Mapped to CBUAE clauses</span>
+      <span><span class="tick">✓</span> Arabic and English output</span>
+    </div>
+    <div class="shot">
+      <img src="assets/model_inventory.png" width="1600" height="858"
+        alt="ForkMark model inventory listing six AI models with provider, version, risk rating, review status and next validation date." />
+    </div>
+    <p class="shot-cap">Model inventory — the system of record for every AI model under governance.</p>
+  </div>
+</section>
+
+<!-- THE GAP -->
+<section id="gap">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow">The gap</p>
+      <h2>Your validation playbooks assume a deterministic model.</h2>
+    </div>
+    <div class="prose" style="margin-top:22px">
+      <p>An AI answers the same question differently twice, and differently again when the vendor ships an update. The methods that validate a credit scorecard produce nothing a supervisor will accept for a language model, so the model waits in review while the business waits on the model.</p>
+      <p>Since February 2026 the CBUAE treats an AI system as a model under §2(a), which puts eight testable obligations on it: inventory and risk-rate it, test it for bias annually and on every upgrade, show its outputs are grounded, keep a human accountable, disclose in Arabic and English, and hold vendor models to the same standard. The obligation applies to the AI you have deployed today.</p>
+      <p>ForkMark is the tooling for that work. It gives a validation function a repeatable way to test an AI system, record the challenge, and produce the evidence file.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="alt">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow">How it works</p>
+      <h2>Four steps, run on every model and repeated on every upgrade.</h2>
+    </div>
+    <div class="rail" style="margin-top:34px">
+      <div class="rail-item">
+        <div class="n">01 / Connect</div>
+        <h3>Register the model</h3>
+        <p>Add it to the inventory with an owner, use case and risk tier, or stream its outputs in through the Python SDK.</p>
+      </div>
+      <div class="rail-item">
+        <div class="n">02 / Test</div>
+        <h3>Run the checks</h3>
+        <p>Numerical grounding against source documents, and group-disparity testing across protected characteristics on identical inputs.</p>
+      </div>
+      <div class="rail-item">
+        <div class="n">03 / Challenge</div>
+        <h3>Record the review</h3>
+        <p>An independent reviewer logs findings, rationale and a verdict against their own name and timestamp.</p>
+      </div>
+      <div class="rail-item">
+        <div class="n">04 / Evidence</div>
+        <h3>Generate the memorandum</h3>
+        <p>Assembled from the run history, mapped to the clauses it satisfies, exported for your existing MRM system.</p>
+      </div>
+    </div>
+    <p class="note">Champion versus challenger: the model in production is retained as the baseline, so an upgrade is tested against the version it replaces. §3(c) expects that comparison on every release.</p>
+  </div>
+</section>
+
+<!-- EVIDENCE -->
+<section id="evidence">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow">The output</p>
+      <h2>A validation memorandum your supervisor can read.</h2>
+    </div>
+    <div class="ev" style="margin-top:36px">
+      <div>
+        <p style="font-size:17.5px;color:var(--muted)">Nine sections, assembled by the platform from the model's own evaluation history rather than typed into a template afterwards. Every finding traces back to the run that produced it.</p>
+        <ul class="memo-list">
+          <li>Executive summary in Arabic and English</li>
+          <li>Scope, methodology and model inventory record</li>
+          <li>Test results with the underlying evaluation data</li>
+          <li>Reviewer findings, rationale and attribution</li>
+          <li>Clause-level coverage against the applicable framework</li>
+          <li>Limitations, conditions and revalidation date</li>
+        </ul>
+        <div class="dl">
+          <a class="btn btn-primary" href="assets/ForkMark_Sample_Validation_Memo.pdf">Download the sample (PDF)</a>
+          <a class="btn btn-line" href="mailto:ambarmore1007@gmail.com?subject=ForkMark%20walkthrough">See it generated live</a>
+        </div>
+      </div>
+      <div class="ev-img">
+        <img src="assets/memo_hero.png" width="1200" height="618"
+          alt="First page of a ForkMark-generated model validation memorandum, showing the bilingual Arabic and English executive summary." />
+      </div>
+    </div>
+    <p class="note">The sample covers an Arabic retail-banking assistant built on Jais 30B, rated high impact. The scenario and the model outputs in it were authored by us for demonstration; the memorandum itself is the platform's own output, generated from the evaluation records.</p>
+  </div>
+</section>
+
+<!-- CBUAE COVERAGE -->
+<section id="coverage" class="alt">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow">CBUAE coverage</p>
+      <h2>What computes today, and what is still in build.</h2>
+      <p>The February 2026 guidance sets eight testable obligations. Six of them compute now. The other two are in development, and we would rather say so here than discover it with you in a pilot.</p>
+    </div>
+    <div class="tbl-wrap" style="margin-top:32px">
+      <table class="obl">
+        <thead>
+          <tr><th scope="col">Obligation</th><th scope="col">How ForkMark satisfies it</th><th scope="col">Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="req">Inventory of every AI, with a risk rating<span class="clause">§2(f) · §8(d)</span></td>
+            <td>Model inventory with risk tiers, linked to every validation run</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">Bias tested yearly and on every upgrade<span class="clause">§3(c)</span></td>
+            <td>Group-disparity fairness test, re-run per version against the retained baseline</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">No unsupported or unsafe outputs<span class="clause">§5(d)</span></td>
+            <td>Numerical grounding check against the approved source document</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">Meaningful human oversight and challenge<span class="clause">§7(a) · §6(b)</span></td>
+            <td>Reviewer decisions and written rationale captured per run, with attribution</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">Data provenance and audit trails<span class="clause">§5(a)</span></td>
+            <td>Append-only audit log with role-based access control</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">Disclosure in Arabic and English<span class="clause">§4(b)</span></td>
+            <td>Bilingual executive summary generated in-app</td>
+            <td class="st"><span class="tag tag-live">Live</span></td>
+          </tr>
+          <tr>
+            <td class="req">Stress-testing and continuous monitoring<span class="clause">§5(d) · §6(a)</span></td>
+            <td>Safety and jailbreak suite, drift monitoring</td>
+            <td class="st"><span class="tag tag-build">In build</span></td>
+          </tr>
+          <tr>
+            <td class="req">Vendor AI held to the in-house standard<span class="clause">§9(c)</span></td>
+            <td>The same suite applied to vendor models; Jais, Falcon and GPT connectors</td>
+            <td class="st"><span class="tag tag-build">In build</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Clause references are to the CBUAE Guidance Note on Artificial Intelligence and Machine Learning (11 February 2026), read with the binding Model Management Standards and Guidance (2022). The platform also carries requirement metadata for the UAE Joint Guidelines (2021), the EU AI Act, SR 26-2 and PRA SS1/23. Provided as engineering guidance, not legal advice.</p>
+  </div>
+</section>
+
+<!-- DEPLOYMENT & SECURITY -->
+<section id="deploy" class="dark">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow on-dark">Deployment and security</p>
+      <h2>Built to clear your third-party risk review.</h2>
+      <p>The architecture is the answer to the objection. Everything runs inside your perimeter, and your security team can read the code before anything is installed.</p>
+    </div>
+    <dl class="spec" style="margin-top:34px">
+      <div class="spec-row">
+        <dt>Deployment</dt>
+        <dd>A single Python service with <code>SQLite</code> or <code>PostgreSQL</code>. Ships with <code>Dockerfile</code> and <code>docker-compose.yml</code>. Runs on one VM; suitable for an air-gapped environment.</dd>
+      </div>
+      <div class="spec-row">
+        <dt>Network egress</dt>
+        <dd>None required. ForkMark makes no outbound calls, has no telemetry and no licence server. The models under test are reached at whatever endpoint you point it at, inside your own network.</dd>
+      </div>
+      <div class="spec-row">
+        <dt>Data handling</dt>
+        <dd>Test inputs, model outputs, evaluation results, reviewer decisions and audit records persist in your own database. Nothing is transmitted to us. There is no vendor-side copy to request the deletion of.</dd>
+      </div>
+      <div class="spec-row">
+        <dt>Access control</dt>
+        <dd>Role-scoped API keys across viewer, reviewer and admin, enforcing segregation of duties between the team that builds a model and the team that signs it off. Every supervisory change writes to an append-only log.</dd>
+      </div>
+      <div class="spec-row">
+        <dt>Integration</dt>
+        <dd>A REST API and a Python SDK. Evaluation records and generated memoranda export out to whatever system of record your model risk function already runs.</dd>
+      </div>
+      <div class="spec-row">
+        <dt>Accessibility</dt>
+        <dd>Interface and generated documents are built against WCAG 2.2 AA, now published as ISO/IEC 40500:2025 and increasingly referenced in financial-services procurement.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- SOURCE -->
+<section id="source">
+  <div class="wrap">
+    <div class="lede">
+      <p class="eyebrow">Source and licence</p>
+      <h2>You can read the code before you install it.</h2>
+    </div>
+    <div class="grid g-3" style="margin-top:32px">
+      <div class="card">
+        <div class="lbl">Licence</div>
+        <h3>MIT, source available</h3>
+        <p>The platform is published under the MIT licence. Your security and architecture teams can review it, fork it, and satisfy themselves about what it does before it touches a model.</p>
+      </div>
+      <div class="card">
+        <div class="lbl">Continuity</div>
+        <h3>No lock-in on the vendor</h3>
+        <p>Because the source is yours to keep and the data sits in your own database, the platform continues to run independently of us. That answers a question every vendor review asks.</p>
+      </div>
+      <div class="card">
+        <div class="lbl">What we maintain</div>
+        <h3>Regulatory currency</h3>
+        <p>What a licence buys is the regulator packs kept current as the rules change, the test library, and support for the validation team using it.</p>
+      </div>
+    </div>
+    <div class="dl">
+      <a class="btn btn-line" href="https://github.com/forkmark/forkmark_banking">View the repository on GitHub</a>
+      <a class="btn btn-line" href="docs/">Read the platform guide</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOUNDER -->
+<section class="alt">
+  <div class="wrap founder">
+    <div class="lede">
+      <p class="eyebrow">Who builds it</p>
+      <h2>Built by a model risk validator.</h2>
+    </div>
+    <div class="prose">
+      <p>Ambar spent four years as a quant in Wells Fargo's Model Risk Management function, validating models across credit, market risk, commodities, FX and equities, and building the Python frameworks that standardised how they were tested. ForkMark is the tool that job needed.</p>
+      <p>The company is early and says so. We are onboarding a small number of design partners now: a free, time-boxed pilot on one use case, installed inside your own environment, ending in a validation memorandum you can circulate internally. Your validators shape what gets built next.</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <p class="eyebrow on-dark">Next step</p>
+    <h2>Bring one model. We will validate it with you.</h2>
+    <p>A 30-minute walkthrough with the head of model risk or the AI governance lead, on a real use case rather than a canned demo. If it fits, the pilot runs in your environment, so nothing needs to leave the bank for you to evaluate it.</p>
+    <a class="btn btn-primary" href="mailto:ambarmore1007@gmail.com?subject=ForkMark%20walkthrough&amp;body=Hi%20Ambar%2C%20I%27d%20like%20a%20walkthrough%20of%20ForkMark.%0A%0AInstitution%3A%0ARole%3A%0AAI%20use%20case%20we%27d%20bring%3A">Book a walkthrough</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div style="display:flex;align-items:center;gap:9px">
+          <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="#12283f"/><g fill="none" stroke="#7fb3e8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 16h5"/><path d="M14 16c4 0 3-6 8-6"/><path d="M14 16c4 0 3 6 8 6"/></g><circle cx="9" cy="16" r="2.3" fill="#7fb3e8"/><circle cx="22" cy="10" r="2.3" fill="#6ddba5"/><circle cx="22" cy="22" r="2.3" fill="#7fb3e8"/></svg>
+          <span class="name">ForkMark</span>
+        </div>
+        <p>Self-hosted AI model validation for regulated financial institutions.</p>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="#how">How it works</a>
+          <a href="#evidence">Sample memorandum</a>
+          <a href="#coverage">CBUAE coverage</a>
+        </div>
+        <div class="foot-col">
+          <h4>Technical</h4>
+          <a href="#deploy">Deployment</a>
+          <a href="#source">Source and licence</a>
+          <a href="https://github.com/forkmark/forkmark_banking">GitHub</a>
+        </div>
+        <div class="foot-col">
+          <h4>Contact</h4>
+          <a href="mailto:ambarmore1007@gmail.com?subject=ForkMark%20walkthrough">Book a walkthrough</a>
+          <span>Abu Dhabi, UAE</span>
+        </div>
+      </div>
+    </div>
+    <p class="disclaimer">Regulatory references summarise primary and reputable secondary sources current to August 2026 and are provided for context rather than as legal advice. ForkMark is a testing and governance framework; it does not train, host or replace the institution's models. The sample memorandum uses a demonstration scenario and contains no customer data.</p>
+    <p class="copy">© 2026 ForkMark. All rights reserved.</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+# ── ForkMark — self-hosted model risk management & validation platform ───────
+#
+# Single-container stack (SQLite, data persisted in the "forkmark_data" volume).
+#
+#   Start:  docker compose up --build -d
+#   Logs:   docker compose logs -f
+#   Stop:   docker compose down
+#
+# Then mint your first API key with the bootstrap token (see README Quick Start):
+#   curl -X POST http://localhost:7700/api/keys \
+#        -H "Content-Type: application/json" \
+#        -H "X-API-Key: $FM_BOOTSTRAP_TOKEN" \
+#        -d '{"name":"admin"}'
+#
+# Open http://localhost:7700 and paste the returned raw_key under API Keys.
+
+services:
+  forkmark:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: forkmark
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    volumes:
+      - forkmark_data:/data
+    environment:
+      FM_HOST: "0.0.0.0"
+      FM_PORT: "7700"
+      FM_DB_PATH: "/data/forkmark.db"
+      # Secure-by-default: an API key is required for all UI endpoints.
+      # MANDATORY for financial-institution deployments — keep this "true".
+      FM_REQUIRE_UI_AUTH: "true"
+      # One-time token used to mint the first API key. CHANGE THIS before any
+      # real deployment (set FM_BOOTSTRAP_TOKEN in a .env file next to this one).
+      FM_BOOTSTRAP_TOKEN: "${FM_BOOTSTRAP_TOKEN:-change-me-bootstrap-token}"
+      # Optional — enables model comparison / LLM-judge scoring.
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      FM_OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  forkmark_data:
+    driver: local

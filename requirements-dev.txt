@@ -1,0 +1,7 @@
+# Test / development dependencies (not needed at runtime).
+#   pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+pytest>=8.0.0
+# Hangs fail fast instead of wedging the run (see pytest.ini: timeout=120).
+pytest-timeout>=2.3.0

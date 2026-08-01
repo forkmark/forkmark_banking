@@ -1,0 +1,152 @@
+{
+  "demo_name": "credit_memo",
+  "display_name": "Commercial Credit Memo — Numerical Fidelity",
+  "governed_model": {
+    "model_id": "commercial-credit-memo",
+    "display_name": "Commercial Credit Memo Generator",
+    "provider": "Azure OpenAI — GPT-4o",
+    "version": "v2",
+    "use_case": "Drafting commercial credit memoranda for relationship managers",
+    "risk_tier": "HIGH",
+    "status": "UNDER_REVIEW",
+    "regulatory_frameworks": [
+      "cbuae_mms",
+      "cbuae"
+    ],
+    "owner_team": "Commercial Banking · Model Risk Management",
+    "deployed_at": "2025-09-15T00:00:00+00:00",
+    "last_validated_at": "2025-10-20T00:00:00+00:00",
+    "present_artifacts": [
+      "model_inventory_record",
+      "independent_validation_report"
+    ]
+  },
+  "workflow": {
+    "name": "commercial-credit-memo",
+    "description": "4-step commercial credit memo pipeline: financial spreading, covenant check, risk rating, and credit recommendation — drafted by an LLM from the borrower's reported financials."
+  },
+  "eval_run": {
+    "name": "Champion GPT-4o vs Challenger GPT-4o-mini — Credit Memo Fidelity",
+    "description": "Can the cheaper challenger model draft commercial credit memos without altering the borrower's reported figures? Numerical fidelity against the source financials is the deciding control. Supports SR 11-7 conceptual soundness and guards against material misstatement."
+  },
+  "branch_a": {
+    "label": "Champion — GPT-4o (grounded)",
+    "name": "champion-gpt4o",
+    "model_id": "gpt-4o",
+    "temperature": 0.1,
+    "is_baseline": true
+  },
+  "branch_b": {
+    "label": "Challenger — GPT-4o-mini (candidate)",
+    "name": "challenger-gpt4o-mini",
+    "model_id": "gpt-4o-mini",
+    "temperature": 0.1,
+    "is_baseline": false
+  },
+  "steps": ["financial_spreading", "covenant_check", "risk_rating", "recommendation"],
+  "input_field": "borrower",
+  "step_field_map": {
+    "financial_spreading": ["fs_a", "fs_b"],
+    "covenant_check": ["cc_a", "cc_b"],
+    "risk_rating": ["rr_a", "rr_b"],
+    "recommendation": ["rec_a", "rec_b"]
+  },
+  "cases": [
+    {
+      "label": "manufacturing-sme-term-loan",
+      "borrower": "Al Reyami Metal Industries LLC — precision metal fabrication, Sharjah. FY2025 audited: Revenue AED 48.2M, EBITDA AED 7.1M (14.7% margin), Total Debt AED 22.5M, Cash AED 3.4M. Requesting AED 12M term loan for a new CNC line. Annual debt service AED 5.26M; DSCR 1.35x.",
+      "fs_a": "Revenue AED 48.2M; EBITDA AED 7.1M (14.7% margin); Total Debt AED 22.5M; Net Debt AED 19.1M; Net leverage 2.69x. Figures tie to the FY2025 audited statements.",
+      "fs_b": "Revenue AED 48.2M; EBITDA AED 8.4M (17.4% margin); Total Debt AED 22.5M; Net Debt AED 19.1M; Net leverage 2.27x. Solid margin profile.",
+      "cc_a": "Proposed covenants: Net leverage ≤ 3.25x (headroom at 2.69x); DSCR ≥ 1.20x (actual 1.35x). Both pass with adequate but not generous headroom.",
+      "cc_b": "Proposed covenants: Net leverage ≤ 3.25x (actual 2.27x, comfortable); DSCR ≥ 1.20x (actual 1.60x, comfortable). Both pass with strong headroom.",
+      "rr_a": "Risk rating 5/10 (satisfactory). DSCR of 1.35x on a cyclical manufacturer leaves limited buffer if the new line underperforms; leverage moderate.",
+      "rr_b": "Risk rating 3/10 (good). DSCR of 1.60x and sub-2.3x leverage indicate a comfortable repayment profile with room to absorb a downturn.",
+      "rec_a": "Approve AED 12M subject to leverage and DSCR covenants and a debenture over the new equipment. Coverage is adequate but monitor quarterly given the tight 1.35x DSCR.",
+      "rec_b": "Approve AED 12M. Comfortable 1.60x DSCR and healthy margins support the facility; standard annual monitoring is sufficient."
+    },
+    {
+      "label": "logistics-firm-revolver",
+      "borrower": "Gulf Freight & Logistics FZE — 3PL and last-mile, Jebel Ali. FY2025: Revenue AED 120.0M, EBITDA AED 10.8M (9.0% margin), Total Debt AED 41.0M, EBITDA-to-net-debt leverage 3.8x. Requesting AED 20M revolving working-capital line.",
+      "fs_a": "Revenue AED 120.0M; EBITDA AED 10.8M (9.0% margin); Total Debt AED 41.0M; Net leverage 3.8x. Thin-margin, asset-heavy 3PL.",
+      "fs_b": "Revenue AED 120.0M; EBITDA AED 10.8M (9.0% margin); Total Debt AED 41.0M; Net leverage 2.9x. Reasonable leverage for the sector.",
+      "cc_a": "Covenant proposed at Net leverage ≤ 4.00x; actual 3.8x leaves only 0.2x headroom — a breach is plausible on any EBITDA softening. Recommend a tighter clean-down clause.",
+      "cc_b": "Covenant proposed at Net leverage ≤ 4.00x; actual 2.9x leaves comfortable 1.1x headroom. Low breach probability.",
+      "rr_a": "Risk rating 6/10 (monitor). 3.8x leverage on 9% margins is elevated; working-capital swings could pressure the covenant. Tie the line to receivables.",
+      "rr_b": "Risk rating 4/10 (satisfactory). 2.9x leverage is manageable for a 3PL; covenant headroom is adequate.",
+      "rec_a": "Approve AED 20M revolver with a borrowing-base tied to eligible receivables and a 30-day annual clean-down. Elevated leverage warrants monthly borrowing-base reporting.",
+      "rec_b": "Approve AED 20M revolver on standard terms; leverage is comfortable and quarterly reporting is sufficient."
+    },
+    {
+      "label": "fnb-chain-tight-dscr",
+      "borrower": "Saffron Hospitality Group LLC — casual-dining chain, 14 outlets across Dubai and Abu Dhabi. FY2025: Revenue AED 33.6M, EBITDA AED 4.2M (12.5% margin), Total Debt AED 15.8M. Annual debt service AED 3.65M; DSCR 1.15x. Requesting AED 6M to open 4 outlets.",
+      "fs_a": "Revenue AED 33.6M; EBITDA AED 4.2M (12.5% margin); Total Debt AED 15.8M; DSCR 1.15x. Coverage is tight for a discretionary-spend sector.",
+      "fs_b": "Revenue AED 33.6M; EBITDA AED 4.2M (12.5% margin); Total Debt AED 15.8M; DSCR 1.45x. Coverage is adequate.",
+      "cc_a": "DSCR covenant at ≥ 1.10x; actual 1.15x means a mere 4% EBITDA decline breaches. This is the single most important control on this credit.",
+      "cc_b": "DSCR covenant at ≥ 1.10x; actual 1.45x provides a meaningful cushion. Breach risk is low.",
+      "rr_a": "Risk rating 7/10 (elevated). A 1.15x DSCR on a discretionary, lease-heavy F&B chain adding capacity is fragile; sensitivity to a 10% same-store-sales drop turns coverage sub-1.0x.",
+      "rr_b": "Risk rating 5/10 (satisfactory). 1.45x DSCR gives room to absorb the expansion; risk is moderate.",
+      "rec_a": "Approve only AED 4M (not 6M), phased to two outlets, with a cash-sweep and a DSCR ≥ 1.10x covenant tested quarterly. The 1.15x coverage cannot support the full ask.",
+      "rec_b": "Approve AED 6M as requested. 1.45x DSCR supports the expansion; standard covenants apply."
+    },
+    {
+      "label": "construction-contractor-receivables",
+      "borrower": "Emirates Foundation Contracting LLC — civil/infrastructure subcontractor. FY2025: Revenue AED 210.0M, EBITDA AED 15.2M (7.2% margin), Total Debt AED 58M. Receivables days (DSO) 145. Requesting AED 30M contract-financing line.",
+      "fs_a": "Revenue AED 210.0M; EBITDA AED 15.2M (7.2% margin); DSO 145 days; Total Debt AED 58M. Very long collection cycle ties up working capital.",
+      "fs_b": "Revenue AED 210.0M; EBITDA AED 15.2M (7.2% margin); DSO 95 days; Total Debt AED 58M. Collection cycle in line with sector norms.",
+      "cc_a": "Given DSO of 145 days, propose a borrowing base advancing only certified receivables < 120 days and a retention-money carve-out. Concentration and dilution are the key risks.",
+      "cc_b": "With DSO of 95 days, a standard receivables advance at 80% is appropriate; dilution risk is limited.",
+      "rr_a": "Risk rating 7/10 (elevated). 145-day DSO on 7.2% margins signals working-capital strain and possible disputed certifications; contractor concentration on a few employers amplifies this.",
+      "rr_b": "Risk rating 5/10 (satisfactory). A 95-day DSO is normal for the sector; working-capital risk is contained.",
+      "rec_a": "Approve AED 30M as a tightly-governed borrowing base (eligible certified receivables < 120 days, 70% advance, single-debtor cap 25%). The 145-day DSO demands active dilution monitoring.",
+      "rec_b": "Approve AED 30M receivables line at 80% advance on standard eligibility; the 95-day DSO is unremarkable."
+    },
+    {
+      "label": "healthcare-clinic-group",
+      "borrower": "NoorCare Medical Group LLC — 9 outpatient clinics. FY2025: Revenue AED 62.0M, EBITDA AED 11.5M (18.5% margin), Total Debt AED 18.0M. Annual debt service AED 6.05M; DSCR 1.90x. Requesting AED 10M to acquire two clinics.",
+      "fs_a": "Revenue AED 62.0M; EBITDA AED 11.5M (18.5% margin); Total Debt AED 18.0M; DSCR 1.90x; Net leverage 1.57x. Strong, cash-generative operator.",
+      "fs_b": "Revenue AED 68.0M; EBITDA AED 11.5M (16.9% margin); Total Debt AED 18.0M; DSCR 1.90x; Net leverage 1.57x. Strong operator.",
+      "cc_a": "Covenants: DSCR ≥ 1.40x (actual 1.90x); Net leverage ≤ 2.50x (actual 1.57x). Both comfortably met even pro-forma for the acquisition.",
+      "cc_b": "Covenants: DSCR ≥ 1.40x (actual 1.90x); Net leverage ≤ 2.50x (actual 1.57x). Both comfortably met.",
+      "rr_a": "Risk rating 3/10 (good). High-margin, defensive healthcare demand with strong coverage and low leverage; acquisition risk is the main watch-item.",
+      "rr_b": "Risk rating 3/10 (good). Strong coverage and low leverage; acquisition integration is the main watch-item.",
+      "rec_a": "Approve AED 10M subject to satisfactory diligence on the two target clinics and DSCR/leverage covenants. A well-supported request.",
+      "rec_b": "Approve AED 10M subject to diligence on the targets. Note: revenue is AED 62.0M per the audited accounts, not AED 68.0M — confirm before documentation."
+    },
+    {
+      "label": "trading-company-low-margin",
+      "borrower": "Continental General Trading LLC — commodity re-export/distribution. FY2025: Revenue AED 540.0M, EBITDA AED 16.2M (3.0% margin), Total Debt AED 73M, Net leverage 4.5x. Requesting AED 40M trade-finance facility (LC/LG).",
+      "fs_a": "Revenue AED 540.0M; EBITDA AED 16.2M (3.0% margin); Total Debt AED 73M; Net leverage 4.5x. Classic high-turnover, razor-thin-margin trader.",
+      "fs_b": "Revenue AED 540.0M; EBITDA AED 21.6M (4.0% margin); Total Debt AED 73M; Net leverage 3.4x. Healthy margin for a trader.",
+      "cc_a": "Trade lines should be self-liquidating and transaction-linked; at 4.5x leverage on 3% margins, avoid clean limits. Tenor ≤ 90 days, LC-backed, with insurance assignment.",
+      "cc_b": "At 3.4x leverage and 4% margins, a partly-clean structure is defensible; standard 120-day tenors are acceptable.",
+      "rr_a": "Risk rating 7/10 (elevated). 3% margins give almost no buffer; a single counterparty default or price move can erase annual EBITDA. Leverage of 4.5x is high for the model.",
+      "rr_b": "Risk rating 5/10 (satisfactory). 4% margins and 3.4x leverage are workable for a trader; risk is moderate.",
+      "rec_a": "Approve AED 40M strictly as transaction-linked, self-liquidating trade finance (≤ 90-day tenor, credit insurance, single-buyer cap). Decline any clean/cash portion given 4.5x leverage.",
+      "rec_b": "Approve AED 40M trade line with a modest clean sub-limit; 3.4x leverage and 4% margins support the structure."
+    },
+    {
+      "label": "real-estate-developer-ltc",
+      "borrower": "Marasi Development LLC — mid-market residential developer. Project: 180-unit tower, Dubai. Total cost to complete AED 140.0M, secured presales AED 88.0M, equity injected AED 52M, requesting AED 60M construction facility. Loan-to-cost (LTC) 62%.",
+      "fs_a": "Cost to complete AED 140.0M; presales AED 88.0M (63% of cost); equity AED 52M; facility AED 60M; LTC 62%. Presales cover the facility 1.47x.",
+      "fs_b": "Cost to complete AED 140.0M; presales AED 88.0M; equity AED 52M; facility AED 60M; LTC 52%. Conservative gearing.",
+      "cc_a": "Fund via an escrow/wakala structure with presale receipts swept to the facility; LTC 62% is at the upper end of appetite, so cap further drawdowns until presales exceed 70% of cost.",
+      "cc_b": "At LTC 52%, gearing is conservative; standard staged drawdowns against certified progress are appropriate.",
+      "rr_a": "Risk rating 6/10 (monitor). 62% LTC with 63% presale cover is acceptable but leaves limited cushion for cost overruns; completion and sales-absorption risk dominate.",
+      "rr_b": "Risk rating 4/10 (satisfactory). 52% LTC provides a solid equity cushion against overruns; risk is moderate.",
+      "rec_a": "Approve AED 60M via project escrow with presales swept to service, a cost-overrun guarantee from the sponsor, and a drawdown cap until presales reach 70%. LTC of 62% needs the overrun backstop.",
+      "rec_b": "Approve AED 60M on standard staged drawdowns; 52% LTC is conservative and the sponsor equity is ample."
+    },
+    {
+      "label": "saas-scaleup-runway",
+      "borrower": "Qantas Software FZ-LLC — B2B SaaS (logistics tech). ARR AED 24.0M, YoY growth 40%, gross margin 78%, annual cash burn AED 9.0M, cash on hand AED 10.5M. Runway 14 months. Requesting AED 8M venture-debt facility.",
+      "fs_a": "ARR AED 24.0M; growth 40%; gross margin 78%; burn AED 9.0M/yr; cash AED 10.5M; runway ~14 months. Growth-stage, pre-profit.",
+      "fs_b": "ARR AED 24.0M; growth 40%; gross margin 78%; burn AED 9.0M/yr; cash AED 10.5M; runway ~22 months. Comfortable runway.",
+      "cc_a": "Venture debt should size to runway: at 14 months' runway, require a minimum-cash covenant and an ARR-growth trigger; the facility must extend runway past the next equity round, not fund the burn.",
+      "cc_b": "With ~22 months' runway, a minimum-cash covenant is sufficient; ARR triggers are optional.",
+      "rr_a": "Risk rating 7/10 (elevated). Pre-profit borrower with 14 months' runway; repayment depends on a future equity raise. Cash-burn and refinancing risk dominate the credit.",
+      "rr_b": "Risk rating 5/10 (satisfactory). ~22 months' runway materially de-risks the next raise; risk is moderate for venture debt.",
+      "rec_a": "Approve AED 8M venture debt with a minimum-liquidity covenant (≥ 6 months' burn), an ARR-growth trigger, and warrants. Note the true runway is ~14 months — size and covenant accordingly.",
+      "rec_b": "Approve AED 8M venture debt with a minimum-cash covenant; ~22 months' runway gives ample repayment cushion."
+    }
+  ]
+}
