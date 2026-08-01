@@ -1,0 +1,74 @@
+name: Deploy website and documentation
+
+# Publishes two things to the single GitHub Pages site for this repo:
+#   /            -> the marketing site in website/
+#   /docs/       -> the MkDocs technical documentation in docs/
+#
+# This replaces the older docs.yml workflow. A repository can only have one
+# Pages site, so running both would leave whichever finished last in place.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage the marketing site at the root
+        run: |
+          mkdir -p _site
+          cp -r website/. _site/
+          # Operator notes and the investor variant never ship publicly.
+          rm -f _site/DEPLOY.md _site/SETUP_REPO.md _site/index-investor.html
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The docs build is allowed to fail without taking the website down with
+      # it. If the docs are missing from a deploy, check this step's log.
+      - name: Build the documentation
+        id: docs
+        continue-on-error: true
+        run: |
+          pip install mkdocs-material
+          cd docs && mkdocs build
+
+      - name: Stage the documentation at /docs
+        if: steps.docs.outcome == 'success'
+        run: |
+          mkdir -p _site/docs
+          cp -r docs/site/. _site/docs/
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

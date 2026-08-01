@@ -1,0 +1,178 @@
+{
+  "demo_name": "credit_scoring",
+  "display_name": "Retail Credit Scoring — Champion vs Challenger Revalidation",
+  "governed_model": {
+    "model_id": "retail-credit-scoring",
+    "display_name": "Retail Credit Scoring Model",
+    "provider": "Internal — Gradient Boosting",
+    "version": "v4.2",
+    "use_case": "Retail lending PD estimation and adverse-action reasons",
+    "risk_tier": "CRITICAL",
+    "status": "ACTIVE",
+    "regulatory_frameworks": [
+      "cbuae_mms",
+      "sr_26_2"
+    ],
+    "owner_team": "Retail Credit · Model Risk Management",
+    "deployed_at": "2024-06-01T00:00:00+00:00",
+    "last_validated_at": "2026-02-10T00:00:00+00:00",
+    "present_artifacts": [
+      "model_inventory_record",
+      "model_materiality_tiering",
+      "independent_validation_report",
+      "governance_record"
+    ]
+  },
+  "workflow": {
+    "name": "retail-credit-scoring-model",
+    "description": "4-step retail credit decision: applicant assessment, PD estimation, adverse-action reasons, and final decision — for the model that assists retail lending officers."
+  },
+  "eval_run": {
+    "name": "Annual Revalidation — Champion v3 vs Challenger v4",
+    "description": "Independent revalidation of the retail credit decisioning model against the in-production champion. Tests output stability, PD alignment, and the regulatory adequacy of adverse-action reasons. Supports CBUAE MMS ongoing monitoring and SR 11-7 outcomes analysis."
+  },
+  "branch_a": {
+    "label": "Champion v3 (in production)",
+    "name": "champion-v3",
+    "model_id": "gpt-4o",
+    "temperature": 0.2,
+    "is_baseline": true
+  },
+  "branch_b": {
+    "label": "Challenger v4 (candidate)",
+    "name": "challenger-v4",
+    "model_id": "gpt-4o",
+    "temperature": 0.2,
+    "is_baseline": false
+  },
+  "steps": ["applicant_assessment", "pd_estimation", "adverse_action_reasons", "decision"],
+  "input_field": "application",
+  "step_field_map": {
+    "applicant_assessment": ["aa_a", "aa_b"],
+    "pd_estimation": ["pd_a", "pd_b"],
+    "adverse_action_reasons": ["ar_a", "ar_b"],
+    "decision": ["dec_a", "dec_b"]
+  },
+  "cases": [
+    {
+      "label": "personal-loan-strong-salaried",
+      "application": "Personal loan AED 120,000, 48 months. Applicant: salaried, AED 28,000/mo, 6 years employment (government-related entity). Existing DBR 22%. AECB score 780. No delinquencies.",
+      "aa_a": "Stable prime salaried applicant, strong tenure at a GRE employer, low existing leverage. Post-loan DBR ~38%, within the 50% cap.",
+      "aa_b": "Prime salaried applicant with strong employment tenure and low existing obligations. Post-loan DBR ~38%, comfortably under the regulatory cap.",
+      "pd_a": "Estimated 12-month PD 0.6% (low). Drivers: high score band, low DBR, long tenure.",
+      "pd_b": "Estimated 12-month PD 0.7% (low). Drivers: high AECB band, low DBR, stable employment.",
+      "ar_a": "None — application meets all criteria.",
+      "ar_b": "None — application meets all criteria.",
+      "dec_a": "APPROVE at requested amount and tenor; standard pricing.",
+      "dec_b": "APPROVE at requested amount and tenor; standard pricing."
+    },
+    {
+      "label": "auto-loan-dbr-breach",
+      "application": "Auto loan AED 95,000, 60 months. Applicant: salaried, AED 11,000/mo, 2 years employment. Existing obligations: personal loan + 2 credit cards; existing DBR 41%. AECB score 690.",
+      "aa_a": "Near-prime applicant already carrying high leverage. Adding this loan pushes DBR to ~53%, above the 50% regulatory cap.",
+      "aa_b": "Near-prime applicant with elevated existing leverage; the new facility takes DBR beyond the 50% cap to ~53%.",
+      "pd_a": "Estimated 12-month PD 4.8% (elevated), driven primarily by post-loan DBR above cap and mid credit band.",
+      "pd_b": "Estimated 12-month PD 5.1% (elevated), driven by DBR breach and moderate score.",
+      "ar_a": "(1) Post-loan debt-burden ratio of ~53% exceeds the 50% maximum; (2) existing unsecured obligations are high relative to income. Reducing tenor does not cure the DBR breach.",
+      "ar_b": "(1) Debt-burden ratio exceeds policy; (2) credit profile below threshold.",
+      "dec_a": "DECLINE as structured. Offer a lower amount (~AED 60,000) or longer tenor that brings DBR under 50%.",
+      "dec_b": "DECLINE."
+    },
+    {
+      "label": "credit-card-thin-file",
+      "application": "Credit card, AED 30,000 limit. Applicant: salaried, AED 9,500/mo, 8 months employment, first credit facility (thin file). AECB score unavailable (insufficient history). DBR 0%.",
+      "aa_a": "Thin-file applicant with no bureau history and short tenure; income adequate but track record unproven.",
+      "aa_b": "Thin-file applicant, no bureau score, short employment tenure; limited basis to assess repayment behaviour.",
+      "pd_a": "Estimated 12-month PD 6.5% (elevated) with wide uncertainty due to absent bureau data; assign to manual review.",
+      "pd_b": "Estimated 12-month PD 6.9% (elevated); high uncertainty from thin file — recommend manual review.",
+      "ar_a": "(1) Insufficient credit history to score; (2) employment tenure below 12 months. Not a decline on capacity — refer to manual underwriting with a reduced starting limit.",
+      "ar_b": "(1) No credit history available; (2) short employment tenure. Recommend manual review rather than automated decline.",
+      "dec_a": "REFER to manual underwriting; if approved, start at AED 10,000 limit and review after 6 months of conduct.",
+      "dec_b": "REFER to manual underwriting; suggested starter limit AED 10,000 with a 6-month conduct review."
+    },
+    {
+      "label": "mortgage-topup-prime",
+      "application": "Mortgage top-up AED 300,000 on an existing owner-occupied property (current LTV 55%, post-top-up LTV 68%). Applicant: salaried, AED 45,000/mo, 10 years employment. Existing DBR 30%. AECB 805.",
+      "aa_a": "Prime applicant, strong income and tenure, secured request with post-top-up LTV 68% (within the 80% cap for a first property) and DBR ~40% post-facility.",
+      "aa_b": "Prime, secured request; post-top-up LTV 68% and DBR ~40%, both within policy.",
+      "pd_a": "Estimated 12-month PD 0.4% (very low); secured, prime band, ample capacity.",
+      "pd_b": "Estimated 12-month PD 0.5% (very low); secured and prime.",
+      "ar_a": "None — within LTV and DBR limits.",
+      "ar_b": "None — within LTV and DBR limits.",
+      "dec_a": "APPROVE the top-up; standard secured pricing.",
+      "dec_b": "APPROVE the top-up; standard secured pricing."
+    },
+    {
+      "label": "personal-loan-recent-delinquency",
+      "application": "Personal loan AED 70,000, 36 months. Applicant: salaried, AED 16,000/mo, 4 years employment. Existing DBR 28%. AECB 655. One credit-card payment 60+ days past due 5 months ago, since regularised.",
+      "aa_a": "Mid-band applicant with adequate capacity but a recent 60-DPD event now cured; behaviour risk elevated over the last 6 months.",
+      "aa_b": "Mid-band applicant, adequate capacity, recent delinquency cured; short seasoning since the event.",
+      "pd_a": "Estimated 12-month PD 5.9% (elevated); the recent-but-cured 60-DPD event is the dominant driver, partly offset by capacity.",
+      "pd_b": "Estimated 12-month PD 3.2% (moderate); treats the delinquency as fully resolved and weights current capacity.",
+      "ar_a": "(1) A recent 60-day delinquency within the last 6 months; (2) credit score in the sub-prime band. Recommend approval at a reduced amount with risk-based pricing once 6 months' clean conduct is evidenced.",
+      "ar_b": "(1) Credit score below preferred threshold. Delinquency treated as resolved.",
+      "dec_a": "REFER / conditional approve at AED 40,000 with risk-based pricing; revisit full amount after 6 months clean.",
+      "dec_b": "APPROVE at requested amount with standard pricing."
+    },
+    {
+      "label": "auto-loan-self-employed",
+      "application": "Auto loan AED 130,000, 60 months. Applicant: self-employed (trading license 5 years), declared income AED 22,000/mo, bank-statement-verified average credits AED 18,500/mo. Existing DBR 20%. AECB 720.",
+      "aa_a": "Self-employed applicant; use the bank-statement-verified AED 18,500/mo (not declared AED 22,000) for capacity. Post-loan DBR on verified income ~33%.",
+      "aa_b": "Self-employed applicant; use verified average credits of AED 18,500/mo. Post-loan DBR ~33% on the verified figure.",
+      "pd_a": "Estimated 12-month PD 2.6% (moderate); income variability of self-employment is the main uncertainty, capacity otherwise sound.",
+      "pd_b": "Estimated 12-month PD 2.8% (moderate); self-employment income variability drives the estimate.",
+      "ar_a": "None on capacity — approve on verified income. Note: assess against verified AED 18,500/mo, not declared income.",
+      "ar_b": "None — approve on verified income.",
+      "dec_a": "APPROVE at requested amount using verified income; secured by the vehicle.",
+      "dec_b": "APPROVE at requested amount using verified income; secured by the vehicle."
+    },
+    {
+      "label": "credit-card-limit-increase",
+      "application": "Credit-card limit increase from AED 25,000 to AED 60,000. Applicant: salaried, AED 20,000/mo, utilisation last 12 months averaging 85% of current limit, 3 late payments in 12 months. AECB 675. Existing DBR 35%.",
+      "aa_a": "High-utilisation, occasionally-late cardholder requesting a large limit jump; 85% utilisation with 3 late payments signals repayment stress, not simply demand.",
+      "aa_b": "Cardholder with high utilisation and some late payments requesting a limit increase; conduct suggests stress.",
+      "pd_a": "Estimated 12-month PD 7.2% (high); sustained 85% utilisation plus 3 late payments are strong early-delinquency signals.",
+      "pd_b": "Estimated 12-month PD 7.5% (high); high utilisation and late payments dominate.",
+      "ar_a": "(1) Sustained high utilisation (~85%) of the existing limit; (2) three late payments in the last 12 months. A limit increase would raise, not relieve, risk. Decline the increase; consider a repayment plan.",
+      "ar_b": "(1) High utilisation; (2) recent late payments. Decline the increase.",
+      "dec_a": "DECLINE the increase; offer counselling / structured repayment on the existing limit.",
+      "dec_b": "DECLINE the increase."
+    },
+    {
+      "label": "personal-loan-high-income-highdbr",
+      "application": "Personal loan AED 250,000, 48 months. Applicant: salaried, AED 60,000/mo, 12 years employment. Existing DBR 44% (mortgage + car). AECB 760.",
+      "aa_a": "Prime, high-income applicant but already at 44% DBR; the new loan pushes DBR to ~52%, marginally above the 50% cap despite strong income.",
+      "aa_b": "Prime high-income applicant near the DBR ceiling; new facility takes DBR to ~52%, just over the cap.",
+      "pd_a": "Estimated 12-month PD 2.1% (moderate); low intrinsic risk but the DBR breach is a hard policy constraint regardless of score.",
+      "pd_b": "Estimated 12-month PD 1.9% (low); strong profile.",
+      "ar_a": "(1) Post-loan debt-burden ratio ~52% exceeds the 50% cap. High income does not waive the cap. Approve a reduced amount (~AED 180,000) that keeps DBR ≤ 50%.",
+      "ar_b": "None identified.",
+      "dec_a": "DECLINE as structured; counter-offer ~AED 180,000 to stay within the DBR cap.",
+      "dec_b": "APPROVE at requested amount; strong income supports the facility."
+    },
+    {
+      "label": "auto-loan-clean-nearprime",
+      "application": "Auto loan AED 80,000, 60 months. Applicant: salaried, AED 13,500/mo, 3 years employment. Existing DBR 18%. AECB 700. No adverse history.",
+      "aa_a": "Near-prime applicant with low leverage and clean history; post-loan DBR ~34%, well within cap; secured.",
+      "aa_b": "Near-prime, low leverage, clean history; post-loan DBR ~34%; secured facility.",
+      "pd_a": "Estimated 12-month PD 2.0% (moderate-low); clean conduct and low DBR offset the mid score band.",
+      "pd_b": "Estimated 12-month PD 2.2% (moderate-low); clean conduct, low DBR.",
+      "ar_a": "None — meets criteria.",
+      "ar_b": "None — meets criteria.",
+      "dec_a": "APPROVE at requested amount; standard secured pricing.",
+      "dec_b": "APPROVE at requested amount; standard secured pricing."
+    },
+    {
+      "label": "personal-loan-probation",
+      "application": "Personal loan AED 50,000, 36 months. Applicant: salaried, AED 14,000/mo, 4 months employment (still on probation), no prior facilities. AECB score limited. DBR 0%.",
+      "aa_a": "Applicant still within probation period with minimal credit history; income adequate but employment not yet confirmed permanent.",
+      "aa_b": "Applicant on probation with thin file; employment stability unconfirmed.",
+      "pd_a": "Estimated 12-month PD 5.4% (elevated); employment-confirmation risk during probation is the main driver.",
+      "pd_b": "Estimated 12-month PD 5.6% (elevated); probation-period employment risk dominates.",
+      "ar_a": "(1) Employment still within probation (tenure < 6 months); (2) limited credit history. Recommend deferring until probation is confirmed, then reassess.",
+      "ar_b": "(1) Employment tenure below policy minimum; (2) limited history. Defer pending confirmation of employment.",
+      "dec_a": "DEFER; invite reapplication on confirmation of permanent employment.",
+      "dec_b": "DEFER; reapply once probation is cleared."
+    }
+  ]
+}

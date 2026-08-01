@@ -1,0 +1,53 @@
+# ── Docker build context excludes ────────────────────────────────────────────
+# Keep host-only / platform-specific artifacts OUT of the image build context.
+#
+# Why this matters: Dockerfile.simple runs `npm ci` (stage 1) and `COPY . .`
+# (stage 2). Without this file, `COPY frontend/ ./` would overlay the host's
+# frontend/node_modules on top of the freshly installed, Linux/musl-correct
+# dependencies — so Vite/Rollup would load the wrong-platform native binary and
+# `npm run build` would fail with "Cannot find module @rollup/rollup-linux-*".
+
+# Node dependencies & build output (reinstalled/rebuilt inside the image)
+**/node_modules
+frontend/dist
+
+# Python bytecode & tooling caches
+**/__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+pytest-cache-files-*/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# Version control & CI
+.git/
+.gitignore
+.github/
+
+# Secrets / local runtime config (provided at runtime via compose env)
+.env
+.env.*
+!.env.example
+
+# Local databases & data
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs & coverage
+*.log
+.coverage
+htmlcov/
+coverage.xml
