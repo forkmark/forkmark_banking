@@ -1,8 +1,9 @@
 """Regulatory framework endpoints.
 
-Exposes the model-validation requirements ForkMark tracks for SR 11-7 (US
-Fed/OCC), the EU AI Act (high-risk systems), PRA SS1/23 (UK), and the CBUAE AI
-guidance (UAE), plus per-model artifact coverage against those frameworks.
+Exposes the model-validation requirements ForkMark tracks for the CBUAE AI
+guidance and Model Management Standards (UAE), the UAE Joint Guidelines, the
+EU AI Act (high-risk systems), SR 26-2 (US Fed/OCC/FDIC, superseding SR 11-7),
+and PRA SS1/23 (UK), plus per-model artifact coverage against those frameworks.
 """
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/api", tags=["regulatory"])
 
 
 class FrameworkRequirementsResponse(BaseModel):
-    framework: str = Field(..., description="Framework identifier, e.g. 'sr_11_7'.")
+    framework: str = Field(..., description="Framework identifier, e.g. 'cbuae_mms'.")
     name: str
     jurisdiction: str
     reference: str
