@@ -485,14 +485,23 @@ class _PGWrapper:
         for stmt in _split_sql_statements(sql):
             if stmt.upper().startswith("PRAGMA"):
                 continue
+            # Each statement runs inside its own SAVEPOINT. On PostgreSQL a
+            # failed statement aborts the entire transaction, so "tolerate the
+            # error and keep going" is only possible if the failure is rolled
+            # back to a savepoint first — otherwise every later statement dies
+            # with InFailedSqlTransaction.
+            cur.execute("SAVEPOINT fm_stmt")
             try:
                 cur.execute(stmt)
             except Exception as e:
+                cur.execute("ROLLBACK TO SAVEPOINT fm_stmt")
                 msg = str(e).lower()
                 if "already exists" not in msg and "duplicate" not in msg:
                     self._conn.rollback()
                     raise
-                # Tolerate "already exists" — keep going in the same txn
+                # Tolerated: the savepoint rollback left the txn usable.
+            else:
+                cur.execute("RELEASE SAVEPOINT fm_stmt")
         self._conn.commit()
 
     def fetchall(self, sql, params=()):
@@ -1119,10 +1128,17 @@ def _migration_v12(c):
         current = row[0]
     if str(current).lower() == "jsonb":
         return  # already converted
+
+    # The column is declared TEXT NOT NULL DEFAULT '{}'. PostgreSQL will convert
+    # the stored *data* via USING, but it refuses to cast the column DEFAULT
+    # ('{}'::text) to jsonb and fails with DatatypeMismatch. Drop the default,
+    # change the type, then restore the default with the correct type.
+    c.execute("ALTER TABLE audit_log ALTER COLUMN detail DROP DEFAULT")
     c.execute(
         "ALTER TABLE audit_log ALTER COLUMN detail TYPE JSONB "
         "USING detail::jsonb"
     )
+    c.execute("ALTER TABLE audit_log ALTER COLUMN detail SET DEFAULT '{}'::jsonb")
 
 
 def _migration_v13(c):
