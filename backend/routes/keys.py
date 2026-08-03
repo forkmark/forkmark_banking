@@ -16,11 +16,12 @@ router = APIRouter(prefix="/api", tags=["keys"])
 class ApiKeyCreate(BaseModel):
     name: str = Field(..., max_length=256)
     role: Literal["viewer", "reviewer", "admin"] = Field(
-        "admin",
+        "viewer",
         description=(
             "RBAC role for the new key: viewer (read-only), reviewer "
             "(read + record decisions / manage inventory / generate memos), or "
-            "admin (full access incl. key + audit management)."
+            "admin (full access incl. key + audit management). Defaults to "
+            "viewer (least privilege); the first bootstrap key is always admin."
         ),
     )
 
@@ -63,10 +64,15 @@ def create_key(body: ApiKeyCreate, request: Request,
             if not bootstrap_token or not hmac.compare_digest(
                     str(x_api_key or ""), str(bootstrap_token)):
                 raise HTTPException(401, "Must be on localhost or provide FM_BOOTSTRAP_TOKEN")
-    new_key, raw = db.create_api_key(body.name, role=body.role)
+    # The very first key (bootstrap) is always admin: someone must be able to
+    # administer the system, and no key exists yet to grant that. Every key
+    # minted afterwards takes the requested role, which defaults to least-
+    # privilege 'viewer'.
+    effective_role = "admin" if not existing else body.role
+    new_key, raw = db.create_api_key(body.name, role=effective_role)
     actor, actor_role = principal(x_api_key)
     _audit("api_key.create", actor, actor_role, new_key.id, request,
-           name=body.name, role=body.role)
+           name=body.name, role=effective_role)
     return {**new_key.to_dict(), "raw_key": raw}
 
 

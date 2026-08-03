@@ -451,7 +451,7 @@ class ApiKey:
     created_at: datetime
     last_used_at: Optional[datetime] = None
     is_active: bool = True
-    role: str = "admin"   # RBAC: 'viewer' | 'reviewer' | 'admin' (default admin for back-compat)
+    role: str = "viewer"  # RBAC: 'viewer' | 'reviewer' | 'admin' (least-privilege default)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -467,5 +467,7 @@ class ApiKey:
         r["last_used_at"] = (_parse_dt(r["last_used_at"])
                              if r.get("last_used_at") else None)
         r["is_active"] = bool(r.get("is_active", 1))
+        # Legacy keys persisted before the role column existed were effectively
+        # full-access; map them to 'admin' so pre-RBAC deployments keep working.
         r.setdefault("role", "admin")
         return cls(**r)
