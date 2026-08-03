@@ -7,13 +7,15 @@ from core.store_impl.base import *  # noqa: F401,F403
 class ApiKeysMixin:
     _VALID_ROLES = ("viewer", "reviewer", "admin")
 
-    def create_api_key(self, name: str, role: str = "admin") -> tuple:
+    def create_api_key(self, name: str, role: str = "viewer") -> tuple:
         """Create a new API key hashed with argon2id (includes embedded salt).
 
         role: RBAC role granted to the key — 'viewer' (read-only), 'reviewer'
         (read + record decisions / manage inventory), or 'admin' (full access,
-        including key and audit management). Defaults to 'admin' for backward
-        compatibility with pre-RBAC deployments.
+        including key and audit management). Defaults to 'viewer' (least
+        privilege): callers that need elevated access must request it explicitly.
+        The one exception is the first/bootstrap key minted via POST /api/keys,
+        which is forced to 'admin' so the system can be administered at all.
         """
         if _ph is None:
             raise RuntimeError(

@@ -64,9 +64,10 @@ def test_api_key_roles_persist_and_validate() -> None:
     ak, raw = db.create_api_key("viewer-key", role="viewer")
     assert ak.role == "viewer"
     assert db.verify_api_key(raw).role == "viewer"
-    # Default role stays admin for backward compatibility.
-    ak2, _ = db.create_api_key("legacy-key")
-    assert ak2.role == "admin"
+    # New keys default to least-privilege 'viewer'; elevated roles must be
+    # requested explicitly.
+    ak2, _ = db.create_api_key("defaulted-key")
+    assert ak2.role == "viewer"
     with pytest.raises(ValueError):
         db.create_api_key("bad", role="superuser")
 
@@ -96,6 +97,21 @@ def test_key_management_is_admin_only() -> None:
     # Reviewer cannot list keys; admin can.
     assert client.get("/api/keys", headers={"X-API-Key": reviewer}).status_code == 403
     assert client.get("/api/keys", headers={"X-API-Key": admin}).status_code == 200
+
+
+def test_new_keys_default_to_viewer_via_api() -> None:
+    # An admin minting a key without naming a role gets least privilege back.
+    _, admin = db.create_api_key("admin-mint", role="admin")
+    r = client.post("/api/keys", json={"name": "defaulted-via-api"},
+                    headers={"X-API-Key": admin})
+    assert r.status_code == 201
+    assert r.json()["role"] == "viewer"
+    # An admin can still request an elevated role explicitly.
+    r2 = client.post("/api/keys", json={"name": "explicit-reviewer",
+                                        "role": "reviewer"},
+                     headers={"X-API-Key": admin})
+    assert r2.status_code == 201
+    assert r2.json()["role"] == "reviewer"
 
 
 # ── Audit log ─────────────────────────────────────────────────────────────────

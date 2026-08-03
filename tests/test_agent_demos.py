@@ -216,7 +216,7 @@ class TestAgentDemoSeeding:
         from fastapi.testclient import TestClient
 
         self.db = db
-        _ak, raw_key = db.create_api_key("demo-test-key")
+        _ak, raw_key = db.create_api_key("demo-test-key", role="admin")
         self.client = TestClient(app)
         self.client.headers["X-API-Key"] = raw_key
 
@@ -444,7 +444,7 @@ class TestEndToEndDemoFlow:
         from fastapi.testclient import TestClient
 
         self.db = db
-        _ak, raw_key = db.create_api_key("e2e-demo-key")
+        _ak, raw_key = db.create_api_key("e2e-demo-key", role="admin")
         self.client = TestClient(app)
         self.client.headers["X-API-Key"] = raw_key
 
@@ -549,7 +549,7 @@ class TestFeatureGating:
         from fastapi.testclient import TestClient
 
         self.db = db
-        _ak, raw_key = db.create_api_key("gate-test-key")
+        _ak, raw_key = db.create_api_key("gate-test-key", role="admin")
         self.client = TestClient(app)
         self.client.headers["X-API-Key"] = raw_key
 
