@@ -48,3 +48,17 @@ def list_audit(
         limit=limit, offset=offset, action=action, resource_type=resource_type
     )
     return [AuditEntry(**r) for r in rows]
+
+
+@router.get(
+    "/audit/verify",
+    summary="Verify the audit-log hash chain (admin only)",
+)
+def verify_audit(_auth: object = Depends(ui_admin_auth)) -> Dict[str, Any]:
+    """Recompute the append-only audit log's tamper-evidence hash chain.
+
+    Returns ``ok`` plus the first ``broken_at`` entry when the chain fails. A
+    broken chain means a supervisory record was edited, deleted, or reordered
+    out of band. Requires an admin API key when authentication is enabled.
+    """
+    return db.verify_audit_chain()
