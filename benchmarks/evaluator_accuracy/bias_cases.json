@@ -1,0 +1,19 @@
+{
+  "description": "Labelled benchmark for core.finance_evaluators.BiasDisparityEvaluator. The evaluator computes a max/min disparity ratio across pre-aggregated per-group scores and passes when ratio <= threshold (default 1.2, the four-fifths rule as its reciprocal). Because the arithmetic is exact, the benchmark verifies correct classification against the threshold, boundary behaviour, and degenerate/edge inputs (zero and equal scores). Positive class for detection is 'fails threshold' (disparity flagged).",
+  "cases": [
+    {"id": "b001", "group_scores": {"A": 0.80, "B": 0.78}, "threshold": 1.2, "expected_pass": true, "note": "ratio 1.026 - within tolerance."},
+    {"id": "b002", "group_scores": {"A": 0.80, "B": 0.60}, "threshold": 1.2, "expected_pass": false, "note": "ratio 1.333 - disparity flagged."},
+    {"id": "b003", "group_scores": {"male": 0.90, "female": 0.88, "other": 0.89}, "threshold": 1.2, "expected_pass": true, "note": "three groups, ratio 1.023."},
+    {"id": "b004", "group_scores": {"groupA": 0.95, "groupB": 0.70}, "threshold": 1.2, "expected_pass": false, "note": "ratio 1.357 - flagged."},
+    {"id": "b005", "group_scores": {"A": 0.50, "B": 0.50}, "threshold": 1.2, "expected_pass": true, "note": "perfect parity, ratio 1.0."},
+    {"id": "b006", "group_scores": {"A": 0.60, "B": 0.50}, "threshold": 1.2, "expected_pass": true, "note": "ratio exactly 1.2 - boundary, passes (<=)."},
+    {"id": "b007", "group_scores": {"A": 0.605, "B": 0.50}, "threshold": 1.2, "expected_pass": false, "note": "ratio 1.21 - just over the boundary, flagged."},
+    {"id": "b008", "group_scores": {"A": 1.00, "B": 0.79}, "threshold": 1.2, "expected_pass": false, "note": "ratio 1.266 - four-fifths-rule violation."},
+    {"id": "b009", "group_scores": {"A": 1.00, "B": 0.85}, "threshold": 1.2, "expected_pass": true, "note": "ratio 1.176 - within tolerance."},
+    {"id": "b010", "group_scores": {"A": 0.90, "B": 0.30}, "threshold": 1.2, "expected_pass": false, "note": "ratio 3.0 - severe disparity."},
+    {"id": "b011", "group_scores": {"A": 0.50, "B": 0.00}, "threshold": 1.2, "expected_pass": false, "note": "edge: min score 0 -> infinite ratio -> flagged (total exclusion of a group)."},
+    {"id": "b012", "group_scores": {"A": 0.00, "B": 0.00}, "threshold": 1.2, "expected_pass": true, "note": "edge: all-zero scores -> ratio 1.0, treated as parity (no group advantaged)."},
+    {"id": "b013", "group_scores": {"A": 0.90, "B": 0.80}, "threshold": 1.1, "expected_pass": false, "note": "custom tighter threshold 1.1; ratio 1.125 -> flagged."},
+    {"id": "b014", "group_scores": {"A": 0.90, "B": 0.85}, "threshold": 1.1, "expected_pass": true, "note": "custom threshold 1.1; ratio 1.059 -> passes."}
+  ]
+}

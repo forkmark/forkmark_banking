@@ -174,8 +174,10 @@ python run.py
 # Frontend (hot reload)
 cd frontend && npm install && npm run dev
 
-# Tests
-pytest tests/
+# Tests — the full backend suite, run by CI on every push (see the badge above).
+# Use an in-memory database for a clean, reproducible run that matches CI:
+pip install -r requirements-dev.txt
+FM_DB_PATH=":memory:" pytest tests/
 ```
 
 ## License

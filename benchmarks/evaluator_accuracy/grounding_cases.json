@@ -1,0 +1,46 @@
+{
+  "description": "Labelled benchmark for core.finance_evaluators.NumericalFidelityEvaluator. Each case pairs a source document with a model output and a ground-truth label: is the output numerically faithful to the source? The positive class for detection is 'unfaithful' (the evaluator should flag it). Cases are grouped by category, including two categories that probe the evaluator's documented limitations (derived_figure -> false positives; misattribution -> false negatives).",
+  "cases": [
+    {"id": "g001", "category": "faithful", "source_document": "Q3 net income was $4.2 million on revenue of $18.7 million.", "model_output": "The bank reported net income of $4.2 million for the quarter.", "ground_truth_faithful": true, "note": "Figure copied verbatim from source."},
+    {"id": "g002", "category": "faithful", "source_document": "The applicant's debt-to-income ratio is 38%.", "model_output": "The applicant's DTI stands at 38%.", "ground_truth_faithful": true, "note": "Percentage matches."},
+    {"id": "g003", "category": "faithful", "source_document": "Total assets reached AED 512 billion in 2025.", "model_output": "Total assets were AED 512 billion.", "ground_truth_faithful": true, "note": "Magnitude figure matches."},
+    {"id": "g004", "category": "faithful", "source_document": "The loan carries an interest rate of 5.25% over a 60-month term.", "model_output": "Rate: 5.25%; term: 60 months.", "ground_truth_faithful": true, "note": "Both figures present in source."},
+    {"id": "g005", "category": "faithful", "source_document": "Tier 1 capital ratio improved to 14.3% at year end.", "model_output": "Its Tier 1 ratio is 14.3%.", "ground_truth_faithful": true, "note": "Ratio matches."},
+    {"id": "g006", "category": "faithful", "source_document": "Loan-loss provisions rose to $310 million.", "model_output": "Provisions were $310 million.", "ground_truth_faithful": true, "note": "Currency figure matches."},
+    {"id": "g007", "category": "faithful", "source_document": "The portfolio comprises 1,250 loans.", "model_output": "There are 1,250 loans in the portfolio.", "ground_truth_faithful": true, "note": "Count matches (thousands separator)."},
+    {"id": "g008", "category": "faithful", "source_document": "Net interest margin was 2.8% for the period.", "model_output": "NIM: 2.8%.", "ground_truth_faithful": true, "note": "Percentage matches."},
+    {"id": "g009", "category": "faithful", "source_document": "The applicant has a consistent repayment history and stable employment.", "model_output": "The applicant has a strong repayment history.", "ground_truth_faithful": true, "note": "No numbers in output -> trivially faithful."},
+    {"id": "g010", "category": "faithful", "source_document": "The facility limit is $2.5 million with a 20% collateral haircut.", "model_output": "Facility limit $2.5 million, haircut 20%.", "ground_truth_faithful": true, "note": "Both figures present."},
+
+    {"id": "g011", "category": "hallucinated", "source_document": "Net income was $4.2 million.", "model_output": "Net income was $5.8 million.", "ground_truth_faithful": false, "note": "5.8m absent from source."},
+    {"id": "g012", "category": "hallucinated", "source_document": "The applicant's DTI is 38%.", "model_output": "The applicant's DTI is 43%.", "ground_truth_faithful": false, "note": "43% absent from source."},
+    {"id": "g013", "category": "hallucinated", "source_document": "The loan rate is 5.25%.", "model_output": "The loan rate is 6.10%.", "ground_truth_faithful": false, "note": "6.10% absent."},
+    {"id": "g014", "category": "hallucinated", "source_document": "Total assets were AED 512 billion.", "model_output": "Total assets were AED 512 billion, up from AED 470 billion a year earlier.", "ground_truth_faithful": false, "note": "470 billion invented (no prior-year figure in source)."},
+    {"id": "g015", "category": "hallucinated", "source_document": "Provisions were $310 million.", "model_output": "Provisions were $310 million and the NPL ratio was 3.2%.", "ground_truth_faithful": false, "note": "3.2% invented."},
+    {"id": "g016", "category": "hallucinated", "source_document": "The applicant earns $85,000 annually.", "model_output": "The applicant earns $85,000 annually and holds $12,000 in savings.", "ground_truth_faithful": false, "note": "12,000 invented."},
+    {"id": "g017", "category": "hallucinated", "source_document": "The credit score on file is 720.", "model_output": "The credit score is 820.", "ground_truth_faithful": false, "note": "820 absent."},
+    {"id": "g018", "category": "hallucinated", "source_document": "The approved loan amount is $2.5 million.", "model_output": "The approved loan amount is $250 million.", "ground_truth_faithful": false, "note": "250 million absent (magnitude error)."},
+    {"id": "g019", "category": "hallucinated", "source_document": "The bank operates 12 branches nationwide.", "model_output": "The bank operates 120 branches nationwide.", "ground_truth_faithful": false, "note": "120 absent."},
+    {"id": "g020", "category": "hallucinated", "source_document": "The coverage ratio stands at 1.4x.", "model_output": "The coverage ratio stands at 2.1x.", "ground_truth_faithful": false, "note": "2.1x absent."},
+
+    {"id": "g021", "category": "derived_figure", "source_document": "Q1 revenue was $10 million and Q2 revenue was $12 million.", "model_output": "First-half revenue totaled $22 million.", "ground_truth_faithful": true, "note": "22m is the correct sum, not present verbatim -> expected FALSE POSITIVE."},
+    {"id": "g022", "category": "derived_figure", "source_document": "Total assets are $500 million and total liabilities are $300 million.", "model_output": "Net equity is therefore $200 million.", "ground_truth_faithful": true, "note": "200m = 500-300, correct derivation, not verbatim -> expected FALSE POSITIVE."},
+    {"id": "g023", "category": "derived_figure", "source_document": "40 of the 200 applications were approved.", "model_output": "The approval rate was 20%.", "ground_truth_faithful": true, "note": "20% = 40/200, derived -> expected FALSE POSITIVE."},
+    {"id": "g024", "category": "derived_figure", "source_document": "The monthly payment is $1,000 over a 12-month term.", "model_output": "Total payments over the term come to $12,000.", "ground_truth_faithful": true, "note": "12,000 = 1000x12, derived -> expected FALSE POSITIVE."},
+    {"id": "g025", "category": "derived_figure", "source_document": "Revenue grew from $8 million to $10 million.", "model_output": "That is a 25% increase.", "ground_truth_faithful": true, "note": "25% = (10-8)/8, derived -> expected FALSE POSITIVE."},
+
+    {"id": "g026", "category": "misattribution", "source_document": "Applicant A earns $85,000; Applicant B earns $60,000.", "model_output": "Applicant B earns $85,000.", "ground_truth_faithful": false, "note": "85,000 is present but belongs to A -> expected FALSE NEGATIVE (evaluator will not flag)."},
+    {"id": "g027", "category": "misattribution", "source_document": "2024 revenue was $50 million; 2025 revenue was $55 million.", "model_output": "2025 revenue was $50 million.", "ground_truth_faithful": false, "note": "50m present (it is 2024's) -> expected FALSE NEGATIVE."},
+    {"id": "g028", "category": "misattribution", "source_document": "The senior tranche yields 4%; the junior tranche yields 9%.", "model_output": "The senior tranche yields 9%.", "ground_truth_faithful": false, "note": "9% present but is the junior tranche -> expected FALSE NEGATIVE."},
+    {"id": "g029", "category": "misattribution", "source_document": "Branch X has 500 accounts; Branch Y has 300 accounts.", "model_output": "Branch Y has 500 accounts.", "ground_truth_faithful": false, "note": "500 present but is Branch X's -> expected FALSE NEGATIVE."},
+
+    {"id": "g030", "category": "rounding_tolerance", "source_document": "Revenue was $4,200,000 for the year.", "model_output": "Revenue was $4.2 million.", "ground_truth_faithful": true, "note": "4.2 million == 4,200,000 (magnitude parsing) -> expected true negative."},
+    {"id": "g031", "category": "rounding_tolerance", "source_document": "Interest charged was $1,234.56.", "model_output": "Interest charged was $1,234.56.", "ground_truth_faithful": true, "note": "Exact decimal match."},
+    {"id": "g032", "category": "rounding_tolerance", "source_document": "The APR is 5.250%.", "model_output": "The APR is 5.25%.", "ground_truth_faithful": true, "note": "5.25 == 5.250 within tolerance."},
+
+    {"id": "g033", "category": "formatting", "source_document": "Exposure of £3.5m to the counterparty.", "model_output": "Exposure is £3.5m.", "ground_truth_faithful": true, "note": "GBP magnitude parsing."},
+    {"id": "g034", "category": "formatting", "source_document": "The spread is 125 bps.", "model_output": "Spread: 125 bps.", "ground_truth_faithful": true, "note": "Basis-points parsing."},
+    {"id": "g035", "category": "formatting", "source_document": "The leverage ratio is 3:1.", "model_output": "Leverage is 3:1.", "ground_truth_faithful": true, "note": "Ratio parsing (3.0)."},
+    {"id": "g036", "category": "formatting", "source_document": "A €2.4 billion facility was approved.", "model_output": "The facility is €2,400,000,000.", "ground_truth_faithful": true, "note": "2.4 billion == 2,400,000,000."}
+  ]
+}

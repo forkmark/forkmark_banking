@@ -112,7 +112,7 @@ class TestEndToEndView:
         from datetime import datetime, timezone
 
         self.db = db
-        _ak, raw_key = db.create_api_key("fe-test-key")
+        _ak, raw_key = db.create_api_key("fe-test-key", role="reviewer")
         self.client = TestClient(app)
         self.client.headers["X-API-Key"] = raw_key
 

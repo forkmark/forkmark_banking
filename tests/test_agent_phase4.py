@@ -58,7 +58,7 @@ class TestAgentAPI:
         self.app = app
 
         # Create API key
-        _ak, raw_key = db.create_api_key("test-agent-key")
+        _ak, raw_key = db.create_api_key("test-agent-key", role="reviewer")
         self.raw_key = raw_key
 
         # Authenticated client
@@ -160,6 +160,20 @@ class TestAgentAPI:
         resp = self.no_auth_client.post("/api/agent/trace-events/batch",
                                         json={"events": []})
         assert resp.status_code == 401
+
+    def test_viewer_key_cannot_ingest_agent_data(self):
+        """A viewer key is read-only: it may not ingest agent trace data.
+        Ingestion is a write, so reviewer or higher is required (segregation of
+        duties), matching the SDK write endpoints."""
+        from fastapi.testclient import TestClient
+
+        _ak, viewer = self.db.create_api_key("agent-viewer", role="viewer")
+        vclient = TestClient(self.app)
+        vclient.headers["X-API-Key"] = viewer
+        # Empty batch is a valid body, so a 403 here is the role gate, not
+        # payload validation.
+        resp = vclient.post("/api/agent/trace-events/batch", json={"events": []})
+        assert resp.status_code == 403
 
     # ── 3. Trace event listing ───────────────────────────────────────────────
 
