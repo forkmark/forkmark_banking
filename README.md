@@ -86,7 +86,7 @@ Open **http://localhost:7700**, go to **API Keys / Settings**, and paste the ret
 | **Human review capture** | Structured decisions with confidence and rationale | SR 26-2 effective challenge; EU AI Act / CBUAE human oversight |
 | **Bilingual disclosure** | Validation memoranda with an **Arabic and English** executive summary, generated in-app | CBUAE transparency/explainability expectation for AI-assisted decisions |
 | **Regulatory coverage** (`/regulatory`) | Present vs. missing evidence artifacts per framework | Documentation completeness across all six regimes |
-| **Access control & audit** (RBAC + `/audit/log`) | Role-scoped API keys (viewer/reviewer/admin) and an append-only audit trail of supervisory mutations | Segregation of duties and auditability (SR 26-2 governance; CBUAE MMS) |
+| **Access control & audit** (RBAC + `/audit/log`) | Role-scoped API keys (viewer/reviewer/admin) and a hash-chained, tamper-evident audit trail of supervisory mutations, verifiable via `/audit/verify` | Segregation of duties and auditability (SR 26-2 governance; CBUAE MMS) |
 | **Validation memos** (`/compliance`) | 9-section validation memorandum as JSON or `.docx` | The written validation record a supervisor expects |
 | **Revalidation calendar** | Models due for revalidation within a window | Ongoing monitoring and periodic revalidation |
 
@@ -100,7 +100,7 @@ The CBUAE's February 2026 AI guidance sets eight testable obligations for licens
 | Bias tested periodically and on every upgrade | Group-disparity evaluator; champion-vs-challenger re-run per version | **Built** |
 | No unsupported or ungrounded outputs | Numerical fidelity evaluator against a source document | **Built** |
 | Meaningful human oversight and challenge | Human review capture with rationale and attribution | **Built** |
-| Data provenance and audit trails | Append-only audit log with role-based access control | **Built** |
+| Data provenance and audit trails | Hash-chained, tamper-evident audit log (verifiable via `/audit/verify`) with role-based access control | **Built** |
 | Disclosure in Arabic and English | Bilingual executive summary in the generated memorandum | **Built** |
 | Stress-testing and continuous monitoring | Safety / jailbreak suite and drift monitoring | *Not built* |
 | Vendor AI held to the in-house standard | Native connectors for vendor and sovereign models (Jais, Falcon, GPT) | *Not built* |
@@ -145,7 +145,7 @@ Full REST API with OpenAPI docs at **`/docs`** (all regulatory, inventory, stati
 
 To avoid confusion between what runs now and what is planned, ForkMark is explicit about scope:
 
-**Ships today (open-source edition):** the single-process FastAPI app on SQLite/PostgreSQL; the full model-risk core (inventory, statistics, evaluators, regulatory coverage for all six regimes, bilingual validation memos); secure-by-default API-key auth **with role-based access control** (viewer/reviewer/admin) and an **append-only audit log** (`/api/audit/log`); in-process background scoring; and optional Redis-backed caching/rate-limiting.
+**Ships today (open-source edition):** the single-process FastAPI app on SQLite/PostgreSQL; the full model-risk core (inventory, statistics, evaluators, regulatory coverage for all six regimes, bilingual validation memos); secure-by-default API-key auth **with role-based access control** (viewer/reviewer/admin) and a **hash-chained, tamper-evident audit log** (`/api/audit/log`, verifiable via `/api/audit/verify`); in-process background scoring; and optional Redis-backed caching/rate-limiting.
 
 **Enterprise roadmap (opt-in via `FM_ENTERPRISE_MODE`, in the `ee/` package):** multi-tenant workspace isolation, SCIM/SSO provisioning, device-flow auth, data-residency routing, a Redis message bus, Celery workers, and OpenTelemetry observability. These load on a best-effort basis and degrade gracefully when their optional services (PostgreSQL, Redis, WorkOS) are absent; the platform guide's scaling sections describe this target architecture, not the default self-host.
 

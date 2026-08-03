@@ -7,6 +7,7 @@ for supervisory mutations (model inventory, key management, memo generation).
 from __future__ import annotations
 
 import importlib
+import json
 import uuid
 
 import pytest
@@ -152,3 +153,56 @@ def test_audit_log_is_append_only_via_store() -> None:
     newest = after[0]
     assert newest["action"] == "test.event"
     assert newest["detail"] == {"k": "v"}
+
+
+# ── Audit-log tamper-evidence (hash chain) ─────────────────────────────────────
+
+
+def _isolated_db():
+    """A fresh, empty Database on a temp path. The audit-chain invariant is
+    whole-table, so these tests must not share the process-wide DB (whose log
+    accumulates rows from other tests and prior runs, and whose tamper case would
+    otherwise leak a permanently broken row into everyone else's view)."""
+    import tempfile
+
+    from core.store import Database
+
+    return Database(tempfile.mktemp(suffix=".db"))
+
+
+def test_audit_chain_verifies_after_appends() -> None:
+    fdb = _isolated_db()
+    for i in range(5):
+        fdb.add_audit_log("test.chain", actor="unit", resource_type="test",
+                          resource_id=f"c{i}", detail={"i": i})
+    result = fdb.verify_audit_chain()
+    assert result["ok"] is True
+    assert result["broken_at"] is None
+    assert result["entries"] == 5
+    assert result["checked"] == 5
+
+
+def test_audit_chain_detects_tampering() -> None:
+    fdb = _isolated_db()
+    entry_id = fdb.add_audit_log("test.tamper", actor="unit",
+                                 resource_type="test", resource_id="victim",
+                                 detail={"amount": 100})
+    # A normal append leaves the chain intact.
+    assert fdb.verify_audit_chain()["ok"] is True
+    # Simulate an out-of-band edit by a privileged operator (bypassing the API).
+    with fdb._conn() as c:
+        c.execute("UPDATE audit_log SET detail=? WHERE id=?",
+                  (json.dumps({"amount": 999}), entry_id))
+    result = fdb.verify_audit_chain()
+    assert result["ok"] is False
+    assert result["broken_at"]["id"] == entry_id
+
+
+def test_audit_verify_endpoint_is_admin_only() -> None:
+    _, admin = db.create_api_key("verify-admin", role="admin")
+    _, viewer = db.create_api_key("verify-viewer", role="viewer")
+    assert client.get("/api/audit/verify",
+                      headers={"X-API-Key": viewer}).status_code == 403
+    r = client.get("/api/audit/verify", headers={"X-API-Key": admin})
+    assert r.status_code == 200
+    assert "ok" in r.json()

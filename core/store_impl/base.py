@@ -698,6 +698,42 @@ def _is_pg(c) -> bool:
     return type(c).__name__ == "_PGWrapper"
 
 
+# ── Audit-log hash chaining (tamper-evidence) ──────────────────────────────────
+# Each audit entry stores a SHA-256 over its own fields plus the previous entry's
+# hash, forming a chain. Editing, deleting, or reordering any entry breaks the
+# chain from that point on, so a privileged operator (e.g. a DBA) cannot silently
+# alter the supervisory record — ``verify_audit_chain()`` detects it.
+_AUDIT_GENESIS_HASH = "0" * 64
+
+
+def _audit_canonical_detail(detail) -> str:
+    """Canonical JSON for the audit ``detail`` payload, stable across SQLite
+    (stored as TEXT) and PostgreSQL (JSONB, read back as a dict) so the hash
+    reproduces identically on either dialect."""
+    if isinstance(detail, str):
+        try:
+            detail = json.loads(detail or "{}")
+        except (ValueError, TypeError):
+            detail = {}
+    return json.dumps(detail or {}, sort_keys=True, separators=(",", ":"))
+
+
+def _audit_entry_hash(prev_hash, entry_id, ts, actor, actor_role, action,
+                      resource_type, resource_id, detail, ip) -> str:
+    """Deterministic SHA-256 chaining one audit entry to ``prev_hash``.
+
+    ``detail`` may be a dict or a JSON string; it is canonicalised first so the
+    write-time and verify-time hashes match regardless of storage dialect.
+    """
+    payload = "\x1f".join([
+        prev_hash or _AUDIT_GENESIS_HASH,
+        str(entry_id or ""), str(ts or ""), str(actor or ""),
+        str(actor_role or ""), str(action or ""), str(resource_type or ""),
+        str(resource_id or ""), _audit_canonical_detail(detail), str(ip or ""),
+    ])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _column_exists(c, table: str, col: str) -> bool:
     """Whether ``table.col`` is already present, without provoking an error.
 
@@ -1168,6 +1204,45 @@ def _migration_v14(c):
         pass
 
 
+def _migration_v15(c):
+    """v15 — Tamper-evidence for the audit log (hash chaining).
+
+    Adds a per-entry SHA-256 (``entry_hash``) that chains to the previous entry's
+    hash (``prev_hash``), ordered by a monotonic ``seq``. Any edit, delete, or
+    reorder of a supervisory audit record breaks the chain, which
+    ``verify_audit_chain()`` detects — closing the gap an append-only convention
+    alone leaves (nothing stopped a privileged DB operator editing a row).
+    Existing rows are backfilled into a valid chain in ``ts`` order. Additive and
+    backward compatible.
+    """
+    _add_column(c, "audit_log", "seq", "INTEGER")
+    _add_column(c, "audit_log", "prev_hash", "TEXT NOT NULL DEFAULT ''")
+    _add_column(c, "audit_log", "entry_hash", "TEXT NOT NULL DEFAULT ''")
+    # Backfill existing rows into a valid chain, ordered deterministically.
+    rows = c.fetchall(
+        "SELECT id, ts, actor, actor_role, action, resource_type, "
+        "resource_id, detail, ip FROM audit_log ORDER BY ts ASC, id ASC"
+    )
+    prev = _AUDIT_GENESIS_HASH
+    for i, raw in enumerate(rows, start=1):
+        r = _row(raw)
+        h = _audit_entry_hash(prev, r.get("id"), r.get("ts"), r.get("actor"),
+                              r.get("actor_role"), r.get("action"),
+                              r.get("resource_type"), r.get("resource_id"),
+                              r.get("detail"), r.get("ip"))
+        c.execute(
+            "UPDATE audit_log SET seq=?, prev_hash=?, entry_hash=? WHERE id=?",
+            (i, prev, h, r.get("id")),
+        )
+        prev = h
+    # Enforce unique sequence numbers so the chain order can't silently collide.
+    try:
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
+                  "ON audit_log(seq)")
+    except Exception:  # pragma: no cover - dialect/backfill edge
+        pass
+
+
 _MIGRATIONS = [
     (1, "eval_run support columns",                          _migration_v1),
     (2, "async scoring, eval results, OTel, versioning",     _migration_v2),
@@ -1183,6 +1258,7 @@ _MIGRATIONS = [
     (12, "postgres: audit_log.detail as JSONB (no-op on SQLite)", _migration_v12),
     (13, "link eval runs to a governed model", _migration_v13),
     (14, "model evaluation_signals column", _migration_v14),
+    (15, "audit_log tamper-evidence: hash chaining", _migration_v15),
 ]
 
 

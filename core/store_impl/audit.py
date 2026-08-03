@@ -12,6 +12,7 @@ from __future__ import annotations
 import json as _json
 
 from core.store_impl.base import *  # noqa: F401,F403
+from core.store_impl.base import _AUDIT_GENESIS_HASH, _audit_entry_hash
 
 
 class AuditMixin:
@@ -31,24 +32,48 @@ class AuditMixin:
         Best-effort by contract at the call site: auditing must never break the
         primary operation, so callers should wrap this in a try/except and log
         failures rather than propagate them.
+
+        Each entry is chained to the previous one with a SHA-256 (``prev_hash`` +
+        ``entry_hash``, ordered by ``seq``), making the append-only log
+        tamper-evident — see :meth:`verify_audit_chain`.
         """
         entry_id = str(uuid.uuid4())
+        ts = datetime.now(timezone.utc).isoformat()
+        detail = detail or {}
         with self._conn() as c:
+            head = c.fetchone(
+                "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
+            )
+            if head is not None:
+                h = _row(head)
+                last_seq = h.get("seq") or 0
+                prev_hash = h.get("entry_hash") or _AUDIT_GENESIS_HASH
+            else:
+                last_seq = 0
+                prev_hash = _AUDIT_GENESIS_HASH
+            seq = int(last_seq) + 1
+            entry_hash = _audit_entry_hash(
+                prev_hash, entry_id, ts, actor or "system", actor_role or "",
+                action, resource_type or "", resource_id or "", detail, ip or "",
+            )
             c.execute(
                 """INSERT INTO audit_log
                    (id, ts, actor, actor_role, action, resource_type,
-                    resource_id, detail, ip)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                    resource_id, detail, ip, seq, prev_hash, entry_hash)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     entry_id,
-                    datetime.now(timezone.utc).isoformat(),
+                    ts,
                     actor or "system",
                     actor_role or "",
                     action,
                     resource_type or "",
                     resource_id or "",
-                    _json.dumps(detail or {}),
+                    _json.dumps(detail),
                     ip or "",
+                    seq,
+                    prev_hash,
+                    entry_hash,
                 ),
             )
         return entry_id
@@ -86,3 +111,38 @@ class AuditMixin:
             r["detail"] = _json_load(r.get("detail"), default={})
             out.append(r)
         return out
+
+    def verify_audit_chain(self) -> dict:
+        """Recompute the audit-log hash chain and report whether it is intact.
+
+        Returns a dict with ``ok`` (bool), ``entries`` (rows examined),
+        ``checked`` (rows verified before any break), and ``broken_at`` — the
+        ``{seq, id}`` of the first entry whose content or linkage fails to
+        verify, or ``None`` when the whole chain is valid. Any out-of-band edit,
+        delete, or reorder of a supervisory record is detected here, which is the
+        evidence that the append-only log has not been altered.
+        """
+        with self._read_conn() as c:
+            rows = c.fetchall("SELECT * FROM audit_log ORDER BY seq ASC")
+        prev = _AUDIT_GENESIS_HASH
+        checked = 0
+        for raw in rows:
+            r = _row(raw)
+            expected = _audit_entry_hash(
+                r.get("prev_hash") or _AUDIT_GENESIS_HASH, r.get("id"),
+                r.get("ts"), r.get("actor"), r.get("actor_role"),
+                r.get("action"), r.get("resource_type"), r.get("resource_id"),
+                r.get("detail"), r.get("ip"),
+            )
+            if ((r.get("prev_hash") or _AUDIT_GENESIS_HASH) != prev
+                    or (r.get("entry_hash") or "") != expected):
+                return {
+                    "ok": False,
+                    "entries": len(rows),
+                    "checked": checked,
+                    "broken_at": {"seq": r.get("seq"), "id": r.get("id")},
+                }
+            prev = r.get("entry_hash") or ""
+            checked += 1
+        return {"ok": True, "entries": len(rows), "checked": checked,
+                "broken_at": None}
