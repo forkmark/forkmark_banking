@@ -21,7 +21,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 
-from backend.deps import db, require_key, ui_read_auth
+from backend.deps import db, require_key_write, ui_read_auth
 from config import config
 
 
@@ -86,7 +86,7 @@ def get_feature_status():
              dependencies=[Depends(_require_agent_feature)])
 def create_trace_events_batch(
     body: TraceEventBatchCreate,
-    api_key: str = Depends(require_key),
+    api_key: str = Depends(require_key_write),
 ):
     """Bulk-create trace events (SDK endpoint, requires API key)."""
     if not body.events:
@@ -131,7 +131,7 @@ def list_trace_events(
              dependencies=[Depends(_require_agent_feature)])
 def create_agent_comparison(
     body: AgentComparisonCreate,
-    api_key: str = Depends(require_key),
+    api_key: str = Depends(require_key_write),
 ):
     """Create a comparison between two agent branches with trajectory scoring.
 
