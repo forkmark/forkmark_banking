@@ -1185,10 +1185,11 @@ def _migration_v13(c):
     keystone that lets ForkMark auto-assemble an evidence-backed validation memo.
     Nullable and backward compatible; existing rows stay NULL.
     """
-    try:
-        c.execute("ALTER TABLE eval_runs ADD COLUMN governed_model_id TEXT")
-    except Exception:  # pragma: no cover - column already exists
-        pass
+    # Ask-first via _add_column: this column also exists in the base _init schema,
+    # so a raw ALTER fails "already exists" — harmless on SQLite, but on
+    # PostgreSQL a swallowed failure poisons the whole migration transaction and
+    # every later statement raises InFailedSqlTransaction.
+    _add_column(c, "eval_runs", "governed_model_id", "TEXT")
 
 
 def _migration_v14(c):
@@ -1198,10 +1199,10 @@ def _migration_v14(c):
     such as per-group fairness scores, ingested from validation runs and used to
     auto-assemble the validation memo. Nullable/defaulted; backward compatible.
     """
-    try:
-        c.execute("ALTER TABLE model_inventory ADD COLUMN evaluation_signals TEXT DEFAULT '{}'")
-    except Exception:  # pragma: no cover - column already exists
-        pass
+    # Ask-first (see v13): this column is also in the base schema, so a raw ALTER
+    # fails "already exists" and, on PostgreSQL, a swallowed failure poisons the
+    # migration transaction.
+    _add_column(c, "model_inventory", "evaluation_signals", "TEXT DEFAULT '{}'")
 
 
 def _migration_v15(c):
@@ -1235,28 +1236,12 @@ def _migration_v15(c):
             (i, prev, h, r.get("id")),
         )
         prev = h
-    # A unique index on ``seq`` is defence-in-depth — add_audit_log already
-    # assigns seq = max(seq)+1, so duplicates should not occur. Create it
-    # best-effort. On PostgreSQL a failed statement poisons the entire migration
-    # transaction (every later statement then raises InFailedSqlTransaction), so
-    # the attempt is fenced with a SAVEPOINT and rolled back to it on any error —
-    # the same pattern the executescript path uses. If the index cannot be
-    # created, application-level assignment remains the guarantee.
-    if _is_pg(c):
-        c.execute("SAVEPOINT fm_v15_seq_idx")
-        try:
-            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
-                      "ON audit_log(seq)")
-        except Exception:
-            c.execute("ROLLBACK TO SAVEPOINT fm_v15_seq_idx")
-        else:
-            c.execute("RELEASE SAVEPOINT fm_v15_seq_idx")
-    else:
-        try:
-            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
-                      "ON audit_log(seq)")
-        except Exception:  # pragma: no cover - SQLite does not poison the txn
-            pass
+    # A unique index on ``seq`` is defence-in-depth (add_audit_log already assigns
+    # seq = max(seq)+1). CREATE ... IF NOT EXISTS is idempotent on both dialects,
+    # so no error-swallowing is needed here — and swallowing a failure would
+    # poison the transaction on PostgreSQL.
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
+              "ON audit_log(seq)")
 
 
 _MIGRATIONS = [
