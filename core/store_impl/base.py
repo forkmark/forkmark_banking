@@ -1235,12 +1235,28 @@ def _migration_v15(c):
             (i, prev, h, r.get("id")),
         )
         prev = h
-    # Enforce unique sequence numbers so the chain order can't silently collide.
-    try:
-        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
-                  "ON audit_log(seq)")
-    except Exception:  # pragma: no cover - dialect/backfill edge
-        pass
+    # A unique index on ``seq`` is defence-in-depth — add_audit_log already
+    # assigns seq = max(seq)+1, so duplicates should not occur. Create it
+    # best-effort. On PostgreSQL a failed statement poisons the entire migration
+    # transaction (every later statement then raises InFailedSqlTransaction), so
+    # the attempt is fenced with a SAVEPOINT and rolled back to it on any error —
+    # the same pattern the executescript path uses. If the index cannot be
+    # created, application-level assignment remains the guarantee.
+    if _is_pg(c):
+        c.execute("SAVEPOINT fm_v15_seq_idx")
+        try:
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
+                      "ON audit_log(seq)")
+        except Exception:
+            c.execute("ROLLBACK TO SAVEPOINT fm_v15_seq_idx")
+        else:
+            c.execute("RELEASE SAVEPOINT fm_v15_seq_idx")
+    else:
+        try:
+            c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_log_seq "
+                      "ON audit_log(seq)")
+        except Exception:  # pragma: no cover - SQLite does not poison the txn
+            pass
 
 
 _MIGRATIONS = [
