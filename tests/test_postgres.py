@@ -72,6 +72,21 @@ def test_pg_dpo_export(pg_db):
                for r in lines)
 
 
+def test_pg_audit_hash_chain(pg_db):
+    """The v15 tamper-evidence migration must complete on PostgreSQL, and the
+    append-only hash chain must verify through the psycopg2/JSONB adapter. This
+    guards the migration's index creation (which must not poison the migration
+    transaction) and the chain's cross-dialect detail canonicalisation.
+    """
+    for i in range(4):
+        # A '%' in the detail also exercises the %-escaping translation path.
+        pg_db.add_audit_log("pg.audit", actor="t", resource_type="test",
+                            resource_id=f"r{i}", detail={"i": i, "note": "x%y"})
+    result = pg_db.verify_audit_chain()
+    assert result["ok"] is True, result
+    assert result["entries"] >= 4
+
+
 def test_pg_like_query_with_percent(pg_db):
     """A LIKE '%...%' query must work — guards the %-escaping in the translator."""
     wf = pg_db.upsert_workflow(f"pg-like-{uuid.uuid4().hex[:8]}")
