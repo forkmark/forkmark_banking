@@ -147,6 +147,44 @@ class StatisticalResult:
             f"Sample size: {self.sample_size} paired comparisons; {powered}."
         )
 
+    def as_plain_english_arabic(self) -> str:
+        """Arabic counterpart of :meth:`as_plain_english`, for bilingual memos.
+
+        Mirrors the English template sentence-for-sentence (same branching logic,
+        same interpolated values) rather than being a one-off translation, so the
+        two never drift when the underlying analysis changes.
+        """
+        magnitude_ar = {
+            "negligible": "ضئيل", "small": "صغير", "medium": "متوسط", "large": "كبير",
+        }[_effect_magnitude(self.effect_size)]
+        favours_ar = (
+            "الفرع أ (الأساس)" if self.effect_size >= 0 else "الفرع ب (المنافس)"
+        )
+        method_label_ar = {
+            "paired_t_test": "اختبار (t) المزدوج",
+            "welch_t_test": "اختبار ويلش (t) للعينات المستقلة",
+        }.get(self.method, self.method)
+        sig_ar = (
+            f"ذو دلالة إحصائية (القيمة الاحتمالية = {self.adjusted_p_value:.3f})"
+            if self.is_significant
+            else f"غير ذي دلالة إحصائية (القيمة الاحتمالية = {self.adjusted_p_value:.3f})"
+        )
+        powered_ar = (
+            "العينة ذات قوة إحصائية كافية لرصد هذا التأثير"
+            if abs(self.effect_size) >= self.minimum_detectable_effect
+            else "قد تكون العينة ذات قوة إحصائية غير كافية لتأثير بهذا الحجم"
+        )
+        return (
+            f"معدّل تفوّق الفرع أ (الأساس) على الفرع ب (المنافس): "
+            f"{self.win_rate * 100:.1f}٪ "
+            f"(فاصل الثقة 95٪: {self.ci_lower * 100:.1f}٪-{self.ci_upper * 100:.1f}٪)؛ "
+            f"ما فوق 50٪ يرجّح الأساس، وما دون 50٪ يرجّح المنافس. "
+            f"الفرق {sig_ar} ({method_label_ar})، بمعامل كوهين d = "
+            f"{self.effect_size:.2f} (تأثير {magnitude_ar}؛ الإشارة الموجبة ترجّح "
+            f"الأساس، وبالتالي فإن هذه النتيجة ترجّح {favours_ar}). "
+            f"حجم العينة: {self.sample_size} مقارنة مزدوجة؛ {powered_ar}."
+        )
+
 
 def _effect_magnitude(d: float) -> str:
     """Classify |Cohen's d| using Cohen's (1988) conventional thresholds."""
