@@ -73,21 +73,48 @@ class ValidationEvidence:
     validation_period_end: Optional[datetime] = None
 
 
+_SEVERITY_AR = {"HIGH": "مرتفع", "MEDIUM": "متوسط", "LOW": "منخفض", "INFO": "معلوماتي"}
+
+_CATEGORY_AR = {
+    "Statistical significance": "الدلالة الإحصائية",
+    "Statistical power": "القوة الإحصائية",
+    "Bias & fairness": "التحيّز والإنصاف",
+    "Numerical fidelity": "الدقة العددية",
+    "Human oversight": "الإشراف البشري",
+    "Regulatory coverage": "التغطية التنظيمية",
+    "Revalidation": "إعادة التحقق",
+    "Overall": "عام",
+}
+
+
 @dataclass(frozen=True)
 class Finding:
-    """A single validation finding with a recommended action."""
+    """A single validation finding with a recommended action.
+
+    ``description``/``recommendation`` are English; ``description_ar``/
+    ``recommendation_ar`` are the Arabic counterparts required for CBUAE's
+    Arabic-and-English disclosure obligation (§4(b)). Both are populated from the
+    same interpolated values in :func:`_generate_findings`, not machine-translated
+    at render time, so the two languages never disagree on a number.
+    """
 
     severity: str  # "HIGH" | "MEDIUM" | "LOW" | "INFO"
     category: str
     description: str
     recommendation: str
+    description_ar: str = ""
+    recommendation_ar: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return {
             "severity": self.severity,
+            "severity_ar": _SEVERITY_AR.get(self.severity, self.severity),
             "category": self.category,
+            "category_ar": _CATEGORY_AR.get(self.category, self.category),
             "description": self.description,
+            "description_ar": self.description_ar,
             "recommendation": self.recommendation,
+            "recommendation_ar": self.recommendation_ar,
         }
 
 
@@ -99,6 +126,7 @@ def _summarize_decisions(decisions: list[dict[str, Any]]) -> dict[str, Any]:
             "choice_distribution": {},
             "confidence_distribution": {},
             "rationale_themes": [],
+            "summary_ar": "لم يتم تسجيل أي قرارات مراجعة بشرية.",
         }
     choices = Counter(str(d.get("choice", "unknown")) for d in decisions)
     confidences = Counter(str(d.get("confidence", "unknown")) for d in decisions)
@@ -110,12 +138,18 @@ def _summarize_decisions(decisions: list[dict[str, Any]]) -> dict[str, Any]:
             if token not in _STOPWORDS:
                 words[token] += 1
     themes = [{"theme": w, "count": n} for w, n in words.most_common(8)]
+    themes_str = ", ".join(f"{t['theme']} ({t['count']})" for t in themes) or "لا يوجد"
 
     return {
         "total_decisions": len(decisions),
         "choice_distribution": dict(choices),
         "confidence_distribution": dict(confidences),
         "rationale_themes": themes,
+        "summary_ar": (
+            f"إجمالي القرارات: {len(decisions)}. توزيع الخيارات: {dict(choices)}. "
+            f"توزيع مستوى الثقة: {dict(confidences)}. المحاور المتكررة في "
+            f"المبررات: {themes_str}."
+        ),
     }
 
 
@@ -139,6 +173,10 @@ def _generate_findings(
                     f"(adjusted p = {sr.adjusted_p_value:.3f}).",
                     "Increase the evaluation sample size or treat the branches as "
                     "equivalent for this metric.",
+                    f"المقارنة رقم {i} غير ذات دلالة إحصائية "
+                    f"(القيمة الاحتمالية المعدَّلة = {sr.adjusted_p_value:.3f}).",
+                    "زيادة حجم عينة التقييم أو اعتبار الفرعين متكافئين بالنسبة لهذا "
+                    "المقياس.",
                 )
             )
         if abs(sr.effect_size) < sr.minimum_detectable_effect:
@@ -149,6 +187,12 @@ def _generate_findings(
                     f"Comparison {i} may be underpowered: |d|={abs(sr.effect_size):.2f} "
                     f"< MDE={sr.minimum_detectable_effect:.2f} at n={sr.sample_size}.",
                     "Expand the evaluation set to reach adequate power (>= 0.80).",
+                    f"قد تكون المقارنة رقم {i} ذات قوة إحصائية غير كافية: "
+                    f"|d|={abs(sr.effect_size):.2f} أقل من الحد الأدنى للتأثير "
+                    f"القابل للاكتشاف={sr.minimum_detectable_effect:.2f} عند حجم "
+                    f"عينة n={sr.sample_size}.",
+                    "توسيع مجموعة التقييم للوصول إلى قوة إحصائية كافية (0.80 أو "
+                    "أعلى).",
                 )
             )
 
@@ -162,6 +206,10 @@ def _generate_findings(
                 "assessment was supplied.",
                 "Run BiasDisparityEvaluator across the relevant demographic groups "
                 "and attach the results.",
+                f"يتطلب إطار {requirements.name} إجراء اختبار للتحيّز، إلا أنه لم "
+                "يُقدَّم أي تقييم للتحيّز أو الإنصاف.",
+                "تشغيل أداة تقييم التحيّز (BiasDisparityEvaluator) عبر الفئات "
+                "الديموغرافية ذات الصلة وإرفاق النتائج.",
             )
         )
     for br in evidence.bias_results:
@@ -175,6 +223,11 @@ def _generate_findings(
                     f"min '{br.min_group}').",
                     "Investigate the driver of the disparity and remediate before "
                     "production use.",
+                    f"نسبة التفاوت {br.disparity_ratio:.2f} تتجاوز الحد المسموح به "
+                    f"{br.threshold:.2f} (الفئة الأعلى '{br.max_group}' مقابل الفئة "
+                    f"الأدنى '{br.min_group}').",
+                    "التحقيق في سبب التفاوت ومعالجته قبل الاستخدام في بيئة "
+                    "الإنتاج.",
                 )
             )
 
@@ -189,6 +242,10 @@ def _generate_findings(
                     "model output relative to the source document.",
                     "Review flagged figures for material misstatement before relying "
                     "on the model's numeric output.",
+                    f"تم رصد {len(nf.flagged_numbers)} رقم/أرقام غير مدعومة في "
+                    "مخرجات النموذج مقارنةً بالمستند المصدر.",
+                    "مراجعة الأرقام المرصودة للتحقق من عدم وجود أخطاء جوهرية قبل "
+                    "الاعتماد على المخرجات العددية للنموذج.",
                 )
             )
 
@@ -201,6 +258,9 @@ def _generate_findings(
                 f"{requirements.name} requires documented human oversight, but no "
                 "human review decisions were recorded.",
                 "Capture human review decisions with rationale and confidence.",
+                f"يتطلب إطار {requirements.name} إشرافاً بشرياً موثَّقاً، إلا أنه لم "
+                "يتم تسجيل أي قرارات مراجعة بشرية.",
+                "تسجيل قرارات المراجعة البشرية مع توضيح المبررات ومستوى الثقة.",
             )
         )
 
@@ -212,18 +272,22 @@ def _generate_findings(
                 "Regulatory coverage",
                 f"Required artifact '{artifact}' is not on file for this model.",
                 f"Produce and attach the '{artifact}' artifact.",
+                f"المستند المطلوب '{artifact}' غير موجود في ملف هذا النموذج.",
+                f"إعداد وإرفاق المستند '{artifact}'.",
             )
         )
 
     # Revalidation currency.
     if model.next_validation_due is not None and model.next_validation_due < _now():
+        due = model.next_validation_due.date().isoformat()
         findings.append(
             Finding(
                 "MEDIUM",
                 "Revalidation",
-                f"Model is overdue for revalidation (due "
-                f"{model.next_validation_due.date().isoformat()}).",
+                f"Model is overdue for revalidation (due {due}).",
                 "Schedule and complete a full revalidation.",
+                f"تجاوز النموذج الموعد المحدد لإعادة التحقق (المستحق بتاريخ {due}).",
+                "جدولة وإتمام عملية إعادة تحقق كاملة.",
             )
         )
 
@@ -235,6 +299,9 @@ def _generate_findings(
                 "No threshold breaches or missing artifacts were identified from the "
                 "supplied evidence.",
                 "Proceed to independent validator sign-off.",
+                "لم يتم رصد أي تجاوز للحدود المسموح بها أو نقص في المستندات ضمن "
+                "الأدلة المقدَّمة.",
+                "المتابعة نحو اعتماد وتوقيع جهة تحقق مستقلة.",
             )
         )
     return findings
@@ -298,6 +365,13 @@ def build_validation_memo(
             "sample_sizes": sample_sizes,
             "total_comparisons": len(evidence.statistical_results),
             "evaluator_suite": list(evidence.evaluator_suite),
+            "summary_ar": (
+                f"الأطر التنظيمية المشمولة بالتقييم: {requirements.name} "
+                f"({requirements.reference}). عدد المقارنات التي جرى تحليلها: "
+                f"{len(evidence.statistical_results)}؛ أحجام العينات: "
+                f"{sample_sizes or 'لا يوجد'}. مجموعة أدوات التقييم المستخدمة: "
+                f"{', '.join(evidence.evaluator_suite) or 'لا يوجد'}."
+            ),
         },
         "statistical_results": [
             {
@@ -311,6 +385,7 @@ def build_validation_memo(
                 "minimum_detectable_effect": sr.minimum_detectable_effect,
                 "test_method": sr.method,
                 "plain_english": sr.as_plain_english(),
+                "plain_english_arabic": sr.as_plain_english_arabic(),
             }
             for sr in evidence.statistical_results
         ],
@@ -322,6 +397,7 @@ def build_validation_memo(
                     "disparity_ratio": br.disparity_ratio,
                     "threshold": br.threshold,
                     "passes_threshold": br.passes_threshold,
+                    "verdict_ar": "مطابق" if br.passes_threshold else "غير مطابق",
                     "max_group": br.max_group,
                     "min_group": br.min_group,
                 }
@@ -337,6 +413,7 @@ def build_validation_memo(
                 {
                     "score": nf.score,
                     "is_faithful": nf.is_faithful,
+                    "verdict_ar": "مطابق" if nf.is_faithful else "غير مطابق",
                     "total_output_numbers": nf.total_output_numbers,
                     "flagged_numbers": [
                         {"value": f.value, "raw": f.raw, "kind": f.kind,
@@ -356,7 +433,11 @@ def build_validation_memo(
         "regulatory_mapping": {
             "framework": requirements.name,
             "artifacts": [
-                {"artifact": a, "status": "PRESENT" if a in present else "MISSING"}
+                {
+                    "artifact": a,
+                    "status": "PRESENT" if a in present else "MISSING",
+                    "status_ar": "متوفر" if a in present else "غير متوفر",
+                }
                 for a in requirements.required_artifacts
             ],
             "present_count": len(present_artifacts),
@@ -438,10 +519,15 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
     doc = Document()
 
     # ── Bilingual (Arabic RTL) helper ────────────────────────────────────────
-    # CBUAE expects AI-decision disclosure/explainability in Arabic and English, so
-    # the memo carries its title, executive summary, and sign-off in both languages.
-    def _ar(text: str, *, bold: bool = False, size: int = 11):
-        p = doc.add_paragraph()
+    # CBUAE requires AI-decision disclosure/explainability in Arabic and English
+    # (§4(b)), so every section of the memo — not just the title and executive
+    # summary — carries its substantive content in both languages.
+    def _style_rtl(p, text: str, *, bold: bool = False, size: int = 11):
+        """Apply RTL paragraph direction + an Arabic-shaped run to a paragraph.
+
+        Works on both top-level document paragraphs and table-cell paragraphs,
+        since both are ``Paragraph`` objects with the same XML surface.
+        """
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         p._p.get_or_add_pPr().append(OxmlElement("w:bidi"))
         run = p.add_run(text)
@@ -450,6 +536,13 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
         run.bold = bold
         run._element.get_or_add_rPr().append(OxmlElement("w:rtl"))
         return p
+
+    def _ar(text: str, *, bold: bool = False, size: int = 11):
+        return _style_rtl(doc.add_paragraph(), text, bold=bold, size=size)
+
+    def _ar_cell(cell, text: str, *, bold: bool = False, size: int = 9.5):
+        """Add an Arabic RTL paragraph below a table cell's existing English text."""
+        return _style_rtl(cell.add_paragraph(), text, bold=bold, size=size)
 
     brand = doc.add_paragraph()
     brand_run = brand.add_run("ForkMark")
@@ -512,6 +605,7 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
     doc.add_paragraph(
         f"Evaluator suite: {', '.join(scope['evaluator_suite']) or 'n/a'}."
     )
+    _ar(scope["summary_ar"])
 
     # 3. Statistical Results
     doc.add_heading("3. Statistical Results", level=1)
@@ -520,8 +614,10 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
         for i, sr in enumerate(memo["statistical_results"], start=1):
             p = doc.add_paragraph(style="List Number")
             p.add_run(sr["plain_english"])
+            _ar(sr["plain_english_arabic"], size=10)
     else:
         doc.add_paragraph("No statistical comparison results were supplied.")
+        _ar("لم تُقدَّم أي نتائج مقارنة إحصائية.")
 
     # 4. Bias & Fairness Assessment
     doc.add_heading("4. Bias & Fairness Assessment", level=1)
@@ -536,6 +632,12 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
                 f"min '{b['min_group']}'.",
                 style="List Bullet",
             )
+            _ar(
+                f"[{b['verdict_ar']}] نسبة التفاوت {b['disparity_ratio']:.3f} "
+                f"(الحد المسموح به {b['threshold']:.2f})؛ الفئة الأعلى "
+                f"'{b['max_group']}' مقابل الفئة الأدنى '{b['min_group']}'.",
+                size=10,
+            )
     else:
         note = (
             "Bias testing is required for this framework but no assessment was supplied."
@@ -543,6 +645,12 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
             else "No bias/fairness assessment supplied."
         )
         doc.add_paragraph(note)
+        note_ar = (
+            "يتطلب هذا الإطار إجراء اختبار للتحيّز، ولم يتم تقديم أي تقييم."
+            if bias["required"]
+            else "لم يتم تقديم أي تقييم للتحيّز أو الإنصاف."
+        )
+        _ar(note_ar)
 
     # 5. Numerical Fidelity
     doc.add_heading("5. Numerical Fidelity", level=1)
@@ -557,8 +665,15 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
                 f"{a['total_output_numbers']} figures.",
                 style="List Bullet",
             )
+            _ar(
+                f"[{a['verdict_ar']}] درجة الدقة {a['score']:.2f}؛ تم رصد "
+                f"{len(a['flagged_numbers'])} من أصل {a['total_output_numbers']} "
+                f"رقماً.",
+                size=10,
+            )
     else:
         doc.add_paragraph("Not applicable for this model's use case.")
+        _ar("لا ينطبق على حالة استخدام هذا النموذج.")
 
     # 6. Human Review Summary
     doc.add_heading("6. Human Review Summary", level=1)
@@ -572,6 +687,7 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
         )
         themes = ", ".join(f"{t['theme']} ({t['count']})" for t in hr["rationale_themes"])
         doc.add_paragraph(f"Rationale themes: {themes or 'n/a'}.")
+    _ar(hr["summary_ar"])
 
     # 7. Regulatory Mapping
     doc.add_heading("7. Regulatory Mapping", level=1)
@@ -580,12 +696,13 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
     map_table = doc.add_table(rows=1, cols=2)
     map_table.style = "Light Grid Accent 1"
     hdr = map_table.rows[0].cells
-    hdr[0].text = "Required Artifact"
-    hdr[1].text = "Status"
+    hdr[0].text = "Required Artifact / المستند المطلوب"
+    hdr[1].text = "Status / الحالة"
     for item in mapping["artifacts"]:
         row = map_table.add_row().cells
         row[0].text = item["artifact"]
         row[1].text = item["status"]
+        _ar_cell(row[1], item["status_ar"])
 
     # 8. Findings & Recommendations
     doc.add_heading("8. Findings & Recommendations", level=1)
@@ -594,17 +711,21 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
     find_table.style = "Light Grid Accent 1"
     fh = find_table.rows[0].cells
     fh[0].text, fh[1].text, fh[2].text, fh[3].text = (
-        "Severity",
-        "Category",
-        "Finding",
-        "Recommendation",
+        "Severity / الخطورة",
+        "Category / الفئة",
+        "Finding / الملاحظة",
+        "Recommendation / التوصية",
     )
     for finding in memo["findings_and_recommendations"]:
         row = find_table.add_row().cells
         row[0].text = finding["severity"]
+        _ar_cell(row[0], finding["severity_ar"])
         row[1].text = finding["category"]
+        _ar_cell(row[1], finding["category_ar"])
         row[2].text = finding["description"]
+        _ar_cell(row[2], finding["description_ar"])
         row[3].text = finding["recommendation"]
+        _ar_cell(row[3], finding["recommendation_ar"])
 
     # 9. Sign-off
     doc.add_heading("9. Sign-off", level=1)

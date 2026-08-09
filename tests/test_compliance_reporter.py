@@ -137,6 +137,71 @@ def test_generate_validation_memo_docx_is_valid(tmp_path: Path) -> None:
     assert len(doc.tables) >= 3
 
 
+def _is_arabic(text: str) -> bool:
+    return any("؀" <= ch <= "ۿ" for ch in text)
+
+
+def test_memo_json_carries_arabic_for_every_section(tmp_path: Path) -> None:
+    """§4(b) disclosure applies to the whole memo, not just the executive
+    summary — every section that has substantive content should carry a
+    genuinely Arabic (not empty, not placeholder) counterpart in the JSON
+    memo, since the JSON is the single source of truth for the .docx too."""
+    reporter, _ = _seed(tmp_path)
+    memo = reporter.generate_validation_memo(
+        "credit-llm", RegulatoryFramework.EU_AI_ACT, _evidence()
+    )
+
+    assert _is_arabic(memo["scope_and_methodology"]["summary_ar"])
+    assert _is_arabic(memo["statistical_results"][0]["plain_english_arabic"])
+    assert _is_arabic(memo["bias_and_fairness"]["assessments"][0]["verdict_ar"])
+    assert _is_arabic(memo["numerical_fidelity"]["assessments"][0]["verdict_ar"])
+    assert _is_arabic(memo["human_review_summary"]["summary_ar"])
+    for artifact in memo["regulatory_mapping"]["artifacts"]:
+        assert _is_arabic(artifact["status_ar"])
+    for finding in memo["findings_and_recommendations"]:
+        assert _is_arabic(finding["description_ar"])
+        assert _is_arabic(finding["recommendation_ar"])
+        assert _is_arabic(finding["severity_ar"])
+        assert _is_arabic(finding["category_ar"])
+
+
+def test_memo_docx_body_is_bilingual_not_just_headings(tmp_path: Path) -> None:
+    """Regression test for the gap this closes: the .docx used to carry Arabic
+    only in the title, executive summary, and sign-off boilerplate, leaving
+    sections 2-8 English-only. Every section's Arabic paragraph should now be
+    present alongside its English content."""
+    reporter, _ = _seed(tmp_path)
+    out = str(tmp_path / "memo_bilingual.docx")
+    path = reporter.generate_validation_memo_docx(
+        "credit-llm", RegulatoryFramework.EU_AI_ACT, _evidence(), output_path=out
+    )
+
+    from docx import Document  # type: ignore[import-untyped]
+
+    doc = Document(path)
+    # Collect Arabic text from top-level paragraphs AND table cells (findings
+    # and regulatory-mapping Arabic lives in cell paragraphs, not doc paragraphs).
+    all_text = list(p.text for p in doc.paragraphs)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                all_text.extend(p.text for p in cell.paragraphs)
+    arabic_paragraphs = [t for t in all_text if _is_arabic(t)]
+
+    # One Arabic paragraph per section (2-8) at minimum, plus the pre-existing
+    # title/exec-summary/sign-off ones — comfortably more than the old ~4.
+    assert len(arabic_paragraphs) >= 12
+    # Spot-check specific section content actually made it into the document,
+    # not just the section headings.
+    joined = "\n".join(arabic_paragraphs)
+    assert "الأطر التنظيمية" in joined  # section 2 (scope & methodology)
+    assert "معدّل تفوّق" in joined  # section 3 (statistical results)
+    assert "نسبة التفاوت" in joined  # section 4 (bias & fairness)
+    assert "درجة الدقة" in joined  # section 5 (numerical fidelity)
+    assert "إجمالي القرارات" in joined  # section 6 (human review)
+    assert "متوفر" in joined or "غير متوفر" in joined  # section 7 (regulatory mapping)
+
+
 def test_unknown_model_raises(tmp_path: Path) -> None:
     reporter, _ = _seed(tmp_path)
     with pytest.raises(KeyError):

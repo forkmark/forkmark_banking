@@ -192,3 +192,36 @@ def test_result_plain_english_mentions_power_context() -> None:
     assert "paired comparisons" in text
     assert "Cohen's d" in text
     assert math.isfinite(1.0)  # sanity: module imported and usable
+
+
+def test_plain_english_arabic_is_actually_arabic_and_carries_the_same_numbers() -> None:
+    """The Arabic summary is real Arabic script, not a placeholder, and agrees
+    with the English summary on every interpolated number and branching
+    decision (significance, direction, power) — the two are meant to never
+    drift since they share the same underlying result."""
+    result = analyze([0.9, 0.88, 0.91, 0.87, 0.93, 0.89, 0.92, 0.9], [0.2, 0.25, 0.22, 0.24, 0.21, 0.23, 0.19, 0.26])
+    en = result.as_plain_english()
+    ar = result.as_plain_english_arabic()
+
+    # Real Arabic script present (not an empty/placeholder string).
+    assert any("؀" <= ch <= "ۿ" for ch in ar)
+
+    # Same numbers appear in both languages (win rate, p-value, Cohen's d, n).
+    assert f"{result.win_rate * 100:.1f}" in ar
+    assert f"{result.adjusted_p_value:.3f}" in ar
+    assert f"{result.effect_size:.2f}" in ar
+    assert str(result.sample_size) in ar
+
+    # Same branching decision: the Arabic sentence states significance the same
+    # way the English one does, consistent with result.is_significant.
+    assert ("ذو دلالة إحصائية" in ar) == result.is_significant
+    assert "statistically significant" in en
+
+
+def test_plain_english_arabic_direction_matches_effect_sign() -> None:
+    """Branch A dominates → Arabic result should favour 'الأساس' (baseline),
+    matching the English 'favours Branch A (baseline)' logic."""
+    result = analyze([0.9] * 8, [0.2] * 8)
+    ar = result.as_plain_english_arabic()
+    assert result.effect_size >= 0
+    assert "ترجّح الفرع أ (الأساس)" in ar
