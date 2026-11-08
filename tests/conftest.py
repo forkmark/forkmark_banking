@@ -8,8 +8,12 @@ not when running one file at a time. This autouse fixture snapshots and restores
 ``os.environ`` around every test so the suite is order-independent.
 """
 import os
+import tempfile
 
 import pytest
+
+_DEFAULT_TEST_DIR = tempfile.mkdtemp(prefix="fm_pytest_")
+_DEFAULT_TEST_DB = os.path.join(_DEFAULT_TEST_DIR, "forkmark.db")
 
 # ForkMark defaults FM_REQUIRE_UI_AUTH to `true` (secure-by-default; mandatory for
 # financial-institution deployments — see config.py). The functional test suite
@@ -19,6 +23,8 @@ import pytest
 # ``config.REQUIRE_UI_AUTH`` (read once at import) picks it up. Auth-gate behaviour
 # is covered separately by tests that drive deps.require_key directly.
 os.environ.setdefault("FM_REQUIRE_UI_AUTH", "false")
+os.environ.setdefault("FM_HOME", _DEFAULT_TEST_DIR)
+os.environ.setdefault("FM_DB_PATH", _DEFAULT_TEST_DB)
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,265 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forkmark-mrm
+  labels:
+    app.kubernetes.io/name: forkmark
+    app.kubernetes.io/part-of: model-risk-management
+    pod-security.kubernetes.io/enforce: restricted
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forkmark-config
+  namespace: forkmark-mrm
+data:
+  FM_HOST: "0.0.0.0"
+  FM_PORT: "7700"
+  FM_DEFAULT_REGION: "me-central-1"
+  FM_REQUIRE_UI_AUTH: "true"
+  DB_POOL_MIN: "4"
+  DB_POOL_MAX: "20"
+  # Egress guard: require explicit opt-in for external cloud LLM judges
+  FM_ALLOW_EXTERNAL_LLM_EGRESS: "false"
+
+---
+# NOTE FOR PRODUCTION: Populate via HashiCorp Vault, ExternalSecrets Operator (ESO),
+# or SealedSecrets. Do not check plaintext credentials into git.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: forkmark-secrets
+  namespace: forkmark-mrm
+type: Opaque
+stringData:
+  # Institutional 32-byte base64 Fernet key for database credential encryption
+  FM_SECRET_KEY: "REPLACE_WITH_VAULT_GENERATED_32_BYTE_BASE64_KEY=="
+  FM_BOOTSTRAP_TOKEN: "REPLACE_WITH_VAULT_INJECTED_BOOTSTRAP_TOKEN"
+  FM_DATABASE_URL: "postgresql://forkmark_app:secure_password@pgbouncer.banking-db.svc.cluster.local:6432/forkmark?sslmode=verify-full&sslrootcert=/etc/ssl/certs/internal-ca.crt"
+
+---
+# Dedicated single-replica migration Job to prevent multi-replica startup race conditions
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: forkmark-db-migrate
+  namespace: forkmark-mrm
+  labels:
+    app.kubernetes.io/name: forkmark
+    app.kubernetes.io/component: db-migration
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forkmark-migrate
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: internal-registry.bank.ae/forkmark/forkmark-banking:v0.1.2
+          command: ["python", "-c", "from backend.deps import db; print('Schema migration and verification complete.')"]
+          envFrom:
+            - configMapRef:
+                name: forkmark-config
+            - secretRef:
+                name: forkmark-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forkmark
+  namespace: forkmark-mrm
+  labels:
+    app.kubernetes.io/name: forkmark
+    app.kubernetes.io/component: mrm-platform
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: forkmark
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: forkmark
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7700"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-db-migration
+          image: internal-registry.bank.ae/forkmark/forkmark-banking:v0.1.2
+          command:
+            - python
+            - -c
+            - |
+              import os, time, sys
+              from core.store import Database
+              db_url = os.getenv("FM_DATABASE_URL", "")
+              print("Waiting for database migration job completion...")
+              for attempt in range(60):
+                  try:
+                      db = Database(db_path=":memory:", database_url=db_url)
+                      with db._read_conn() as conn:
+                          row = conn.fetchone("SELECT COUNT(*) FROM audit_log")
+                          print("Database schema migration verified and ready.")
+                          sys.exit(0)
+                  except Exception as e:
+                      print(f"Waiting for migration job (attempt {attempt+1}/60): {e}")
+                      time.sleep(2)
+              print("Timeout waiting for database migration job.")
+              sys.exit(1)
+          env:
+            - name: FM_SKIP_STARTUP_MIGRATIONS
+              value: "true"
+          envFrom:
+            - configMapRef:
+                name: forkmark-config
+            - secretRef:
+                name: forkmark-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      containers:
+        - name: forkmark
+          image: internal-registry.bank.ae/forkmark/forkmark-banking:v0.1.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 7700
+              protocol: TCP
+          env:
+            - name: FM_SKIP_STARTUP_MIGRATIONS
+              value: "true"
+          envFrom:
+            - configMapRef:
+                name: forkmark-config
+            - secretRef:
+                name: forkmark-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forkmark
+  namespace: forkmark-mrm
+  labels:
+    app.kubernetes.io/name: forkmark
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 7700
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: forkmark
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: forkmark-airgap-egress
+  namespace: forkmark-mrm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: forkmark
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from internal banking ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 7700
+    # Allow Prometheus monitoring scraper to scrape /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 7700
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow traffic strictly to institutional PgBouncer / PostgreSQL database
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: banking-db
+      ports:
+        - protocol: TCP
+          port: 6432

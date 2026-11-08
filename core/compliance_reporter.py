@@ -42,6 +42,7 @@ __all__ = [
     "Finding",
     "ComplianceReporter",
     "build_validation_memo",
+    "render_validation_memo_html",
 ]
 
 logger = logging.getLogger("forkmark.compliance_reporter")
@@ -51,6 +52,10 @@ _STOPWORDS = frozenset(
     """the a an and or but of to in on for with is are was were be been it this that
     as at by from than then so if not no yes better worse more less much very output
     outputs model branch a b response answer both because which while about""".split()
+)
+_ARABIC_STOPWORDS = frozenset(
+    """من الى إلى عن على في مع هذا هذه تم كان كانت أن ان أو و ثم ليس غير ذلك
+    النموذج مخرجات نتيجة تقييم قرار بسبب بعد قبل حول كل كيف حيث""".split()
 )
 
 
@@ -133,9 +138,10 @@ def _summarize_decisions(decisions: list[dict[str, Any]]) -> dict[str, Any]:
 
     words: Counter[str] = Counter()
     for d in decisions:
-        text = f"{d.get('rationale_for_choice', '')} {d.get('rationale_for_rejection', '')}"
-        for token in re.findall(r"[a-zA-Z]{4,}", text.lower()):
-            if token not in _STOPWORDS:
+        text = f"{d.get('rationale', '')} {d.get('rationale_for_choice', '')} {d.get('rationale_for_rejection', '')}"
+        # Match English words (>=4 chars) or Arabic words (>=3 chars)
+        for token in re.findall(r"[a-zA-Z\u0600-\u06FF]{3,}", text.lower()):
+            if token not in _STOPWORDS and token not in _ARABIC_STOPWORDS:
                 words[token] += 1
     themes = [{"theme": w, "count": n} for w, n in words.most_common(8)]
     themes_str = ", ".join(f"{t['theme']} ({t['count']})" for t in themes) or "لا يوجد"
@@ -234,15 +240,17 @@ def _generate_findings(
     # Numerical fidelity.
     for nf in evidence.numerical_fidelity_results:
         if not nf.is_faithful:
+            branch_info = f" in {nf.target_branch}" if getattr(nf, "target_branch", None) else ""
+            branch_info_ar = f" في ({nf.target_branch})" if getattr(nf, "target_branch", None) else ""
             findings.append(
                 Finding(
                     "HIGH",
                     "Numerical fidelity",
-                    f"{len(nf.flagged_numbers)} unsupported figure(s) detected in "
-                    "model output relative to the source document.",
-                    "Review flagged figures for material misstatement before relying "
+                    f"{len(nf.flagged_numbers)} unsupported figure(s) detected{branch_info} "
+                    "relative to the source document.",
+                    f"Review flagged figures{branch_info} for material misstatement before relying "
                     "on the model's numeric output.",
-                    f"تم رصد {len(nf.flagged_numbers)} رقم/أرقام غير مدعومة في "
+                    f"تم رصد {len(nf.flagged_numbers)} رقم/أرقام غير مدعومة{branch_info_ar} في "
                     "مخرجات النموذج مقارنةً بالمستند المصدر.",
                     "مراجعة الأرقام المرصودة للتحقق من عدم وجود أخطاء جوهرية قبل "
                     "الاعتماد على المخرجات العددية للنموذج.",
@@ -344,6 +352,13 @@ def build_validation_memo(
     sample_sizes = [sr.sample_size for sr in evidence.statistical_results]
     findings = _generate_findings(model, requirements, evidence, missing_artifacts)
 
+    # Islamic banking / Shari'ah governance detection
+    text_corpus = f"{model.use_case} {model.display_name} {model.model_id}".lower()
+    is_islamic = any(k in text_corpus for k in [
+        "islamic", "sharia", "shariah", "murabaha", "mudarabah", "sukuk", "ijarah", "halal",
+        "إسلامي", "مرابحة", "مضاربة", "صكوك", "إجارة", "شريعة"
+    ])
+
     return {
         "title": "ForkMark Model Validation Memorandum",
         "generated_at": _now().isoformat(),
@@ -358,6 +373,7 @@ def build_validation_memo(
             "jurisdiction": requirements.jurisdiction,
             "validation_period": {"start": period_start, "end": period_end},
             "status": model.status.value,
+            "is_islamic_banking": is_islamic,
         },
         "scope_and_methodology": {
             "frameworks_assessed": [requirements.name],
@@ -413,6 +429,7 @@ def build_validation_memo(
                 {
                     "score": nf.score,
                     "is_faithful": nf.is_faithful,
+                    "target_branch": getattr(nf, "target_branch", ""),
                     "verdict_ar": "مطابق" if nf.is_faithful else "غير مطابق",
                     "total_output_numbers": nf.total_output_numbers,
                     "flagged_numbers": [
@@ -451,6 +468,10 @@ def build_validation_memo(
             "validation_date": "",
             "approval_status": "",
             "comments": "",
+            "sharia_board_applicable": is_islamic,
+            "sharia_scholar_name": "",
+            "sharia_approval_status": "",
+            "sharia_notes": "",
         },
     }
 
@@ -507,6 +528,16 @@ class ComplianceReporter:
         _render_docx(memo, path)
         logger.info("compliance: wrote validation memo docx to %s", path)
         return path
+
+    def generate_validation_memo_html(
+        self,
+        model_id: str,
+        framework: RegulatoryFramework,
+        evidence: Optional[ValidationEvidence] = None,
+    ) -> str:
+        """Generate the validation memo as a self-contained, printable HTML document."""
+        memo = self.generate_validation_memo(model_id, framework, evidence)
+        return render_validation_memo_html(memo)
 
 
 def _render_docx(memo: dict[str, Any], output_path: str) -> None:
@@ -742,4 +773,464 @@ def _render_docx(memo: dict[str, Any], output_path: str) -> None:
         sign_table.rows[idx].cells[0].text = label
         sign_table.rows[idx].cells[1].text = ""
 
+    # 10. Shari'ah Attestation (if applicable)
+    if memo.get("sign_off", {}).get("sharia_board_applicable"):
+        doc.add_heading("10. Shari'ah Supervisory Board Attestation", level=1)
+        _ar("١٠. اعتماد هيئة الرقابة الشرعية", bold=True, size=11)
+        doc.add_paragraph(
+            "This model operates within Islamic financial product workflows. Final operational "
+            "deployment is subject to the ruling and pronouncement of the Internal Shari'ah "
+            "Supervisory Committee (ISSC)."
+        )
+        _ar("يعمل هذا النموذج ضمن منتجات الصيرفة الإسلامية، ويخضع اعتماده النهائي لقرار هيئة الرقابة الشرعية.")
+        sharia_table = doc.add_table(rows=4, cols=2)
+        sharia_table.style = "Table Grid"
+        slabels = [
+            "Shari'ah Scholar / Internal Shari'ah Control",
+            "Designation / Institutional Title",
+            "Shari'ah Pronouncement / قرار الهيئة",
+            "Date / التاريخ",
+        ]
+        for sidx, slabel in enumerate(slabels):
+            sharia_table.rows[sidx].cells[0].text = slabel
+            sharia_table.rows[sidx].cells[1].text = ""
+
     doc.save(output_path)
+
+
+def render_validation_memo_html(memo: dict[str, Any]) -> str:
+    """Render a validation memo dict to a self-contained, printable HTML document.
+
+    Designed for both in-browser presentation and crisp, board-ready PDF generation
+    via the browser's built-in print dialog (window.print()).
+    """
+    import html
+
+    def h(val: Any) -> str:
+        if val is None:
+            return ""
+        return html.escape(str(val))
+
+    ex = memo.get("executive_summary", {})
+    scope = memo.get("scope_and_methodology", {})
+    stats = memo.get("statistical_results", [])
+    bias = memo.get("bias_and_fairness", {})
+    num_fid = memo.get("numerical_fidelity", {})
+    review = memo.get("human_review_summary", {})
+    reg_map = memo.get("regulatory_mapping", {})
+    findings = memo.get("findings_and_recommendations", [])
+    sign_off = memo.get("sign_off", {})
+
+    status_color = "#10b981" if ex.get("status") == "ACTIVE" else "#f59e0b"
+    risk_color = "#ef4444" if ex.get("risk_tier") in ("HIGH", "CRITICAL") else "#f59e0b" if ex.get("risk_tier") == "MEDIUM" else "#10b981"
+
+    # Stat rows
+    stat_rows = []
+    for s in stats:
+        ci = s.get("confidence_interval_95", [0, 0])
+        stat_rows.append(f"""
+        <tr>
+            <td><strong>{h(s.get('sample_size', 0))}</strong></td>
+            <td>{h(round(s.get('win_rate', 0) * 100, 1))}%</td>
+            <td>[{h(round(ci[0] * 100, 1))}%, {h(round(ci[1] * 100, 1))}%]</td>
+            <td>{h(s.get('p_value', 0))}</td>
+            <td>{h(s.get('adjusted_p_value', 0))}</td>
+            <td>{h(s.get('effect_size_cohens_d', 0))}</td>
+            <td><span class="badge {'badge-pass' if s.get('is_significant') else 'badge-warn'}">{'Significant / دال إحصائياً' if s.get('is_significant') else 'Not Significant / غير دال'}</span></td>
+        </tr>
+        """)
+
+    # Bias rows
+    bias_rows = []
+    for b in bias.get("assessments", []):
+        passes = b.get("passes_threshold", False)
+        bias_rows.append(f"""
+        <tr>
+            <td>{h(b.get('disparity_ratio', 0))}</td>
+            <td>{h(b.get('threshold', 0))}</td>
+            <td>{h(b.get('max_group', '—'))} vs {h(b.get('min_group', '—'))}</td>
+            <td><span class="badge {'badge-pass' if passes else 'badge-fail'}">{'Pass / ' + h(b.get('verdict_ar', 'مطابق')) if passes else 'Fail / ' + h(b.get('verdict_ar', 'غير مطابق'))}</span></td>
+        </tr>
+        """)
+
+    # Num fidelity rows
+    num_rows = []
+    for n in num_fid.get("assessments", []):
+        passes = n.get("is_faithful", False)
+        flagged = n.get("flagged_numbers", [])
+        flagged_summary = ", ".join(f"{h(f.get('raw'))} ({h(f.get('reason', 'unsupported'))})" for f in flagged) or "None / لا يوجد"
+        num_rows.append(f"""
+        <tr>
+            <td><strong>{h(round(n.get('score', 0) * 100, 1))}%</strong></td>
+            <td>{h(n.get('total_output_numbers', 0))}</td>
+            <td><span class="badge {'badge-pass' if passes else 'badge-fail'}">{'Faithful / ' + h(n.get('verdict_ar', 'مطابق')) if passes else 'Unfaithful / ' + h(n.get('verdict_ar', 'غير مطابق'))}</span></td>
+            <td><small>{flagged_summary}</small></td>
+        </tr>
+        """)
+
+    # Findings rows
+    findings_rows = []
+    for f in findings:
+        sev = f.get("severity", "INFO")
+        sev_class = "badge-fail" if sev == "HIGH" else "badge-warn" if sev == "MEDIUM" else "badge-info"
+        findings_rows.append(f"""
+        <tr>
+            <td><span class="badge {sev_class}">{h(sev)}<br><small dir="rtl">{h(f.get('severity_ar', ''))}</small></span></td>
+            <td><strong>{h(f.get('category'))}</strong><br><small dir="rtl">{h(f.get('category_ar', ''))}</small></td>
+            <td>{h(f.get('description'))}<br><div class="ar-text" dir="rtl">{h(f.get('description_ar', ''))}</div></td>
+            <td>{h(f.get('recommendation'))}<br><div class="ar-text" dir="rtl">{h(f.get('recommendation_ar', ''))}</div></td>
+        </tr>
+        """)
+
+    # Regulatory mapping rows
+    map_rows = []
+    for a in reg_map.get("artifacts", []):
+        is_present = a.get("status") == "PRESENT"
+        map_rows.append(f"""
+        <tr>
+            <td>{h(a.get('artifact', '').replace('_', ' ').title())}</td>
+            <td><span class="badge {'badge-pass' if is_present else 'badge-fail'}">{h(a.get('status'))} / {h(a.get('status_ar'))}</span></td>
+        </tr>
+        """)
+
+    # Themes tags
+    themes_html = ""
+    for t in review.get("rationale_themes", []):
+        themes_html += f'<span class="theme-tag" dir="auto">{h(t.get("theme"))} <small>({h(t.get("count"))})</small></span> '
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Validation Memorandum — {h(ex.get('model_name'))}</title>
+    <style>
+        :root {{
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --bg-page: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --font-stack: 'Cairo', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: var(--font-stack);
+            color: var(--text-main);
+            background: var(--bg-page);
+            line-height: 1.6;
+            font-size: 14px;
+        }}
+        .topbar {{
+            background: #0f172a;
+            color: #fff;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }}
+        .topbar h1 {{ font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }}
+        .btn {{
+            background: var(--primary-light);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }}
+        .btn:hover {{ background: #2563eb; }}
+        .page-container {{
+            max-width: 960px;
+            margin: 32px auto;
+            background: var(--card-bg);
+            padding: 48px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+        }}
+        .memo-header {{
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }}
+        .memo-pretitle {{
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--primary);
+            font-weight: 700;
+        }}
+        .memo-title {{
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 6px 0 12px 0;
+        }}
+        .memo-meta-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 6px;
+        }}
+        .meta-item label {{ font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; }}
+        .meta-item span {{ font-size: 13px; font-weight: 700; color: var(--text-main); }}
+        h2 {{
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 32px 0 12px 0;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+        }}
+        h2 small {{ font-size: 14px; font-weight: 500; color: var(--text-muted); }}
+        p {{ margin-bottom: 12px; }}
+        .ar-summary {{
+            background: #f8fafc;
+            border-right: 3px solid var(--primary-light);
+            border-left: none;
+            padding: 12px 16px;
+            margin: 12px 0;
+            font-size: 13px;
+            color: #334155;
+            border-radius: 4px;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 13px;
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }}
+        th {{
+            background: #f8fafc;
+            font-weight: 700;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        .badge {{
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+        }}
+        .badge-pass {{ background: #dcfce7; color: #15803d; }}
+        .badge-fail {{ background: #fee2e2; color: #b91c1c; }}
+        .badge-warn {{ background: #fef3c7; color: #b45309; }}
+        .badge-info {{ background: #e0f2fe; color: #0369a1; }}
+        .theme-tag {{
+            display: inline-block;
+            background: #e2e8f0;
+            color: #334155;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 2px;
+        }}
+        .ar-text {{ font-size: 12px; color: var(--text-muted); margin-top: 4px; }}
+        .signoff-box {{
+            margin-top: 36px;
+            border: 2px dashed #cbd5e1;
+            padding: 24px;
+            border-radius: 6px;
+            background: #fafafa;
+        }}
+        .signoff-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 16px;
+        }}
+        .sign-field {{ border-bottom: 1px solid #94a3b8; height: 36px; margin-top: 8px; }}
+        @media print {{
+            body {{ background: #fff; font-size: 12px; }}
+            .topbar {{ display: none !important; }}
+            .page-container {{ max-width: 100%; margin: 0; padding: 0; border: none; box-shadow: none; }}
+            h2 {{ page-break-after: avoid; }}
+            table, .signoff-box {{ page-break-inside: avoid; }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>ForkMark Model Risk Governance &bull; Validation Memo</h1>
+        <button class="btn" onclick="window.print()">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/><path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/></svg>
+            Print to PDF / طباعة كملف PDF
+        </button>
+    </div>
+
+    <div class="page-container">
+        <header class="memo-header">
+            <div class="memo-pretitle">Supervisory Model Validation Memorandum &bull; مذكرة التحقق من النموذج</div>
+            <h1 class="memo-title">{h(ex.get('model_name'))}</h1>
+            <p><strong>Framework / الإطار التنظيمي:</strong> {h(ex.get('framework'))} &bull; <strong>Jurisdiction / الاختصاص:</strong> {h(ex.get('jurisdiction'))}</p>
+            <div class="memo-meta-grid">
+                <div class="meta-item"><label>Model ID</label><span>{h(ex.get('model_id'))}</span></div>
+                <div class="meta-item"><label>Version / Provider</label><span>{h(ex.get('version'))} ({h(ex.get('provider'))})</span></div>
+                <div class="meta-item"><label>Risk Tier</label><span style="color: {risk_color}">{h(ex.get('risk_tier'))}</span></div>
+                <div class="meta-item"><label>Status</label><span style="color: {status_color}">{h(ex.get('status'))}</span></div>
+            </div>
+        </header>
+
+        <section>
+            <h2>1. Executive Summary <small dir="rtl">١. الملخص التنفيذي</small></h2>
+            <p>This validation memorandum documents the independent model validation conducted under <strong>{h(ex.get('framework'))}</strong> standards for model <strong>{h(ex.get('model_name'))}</strong> (Use Case: <em>{h(ex.get('use_case'))}</em>). Validation evidence was evaluated against regulatory benchmarks for statistical significance, demographic parity, and source-grounded numerical fidelity.</p>
+            <div class="ar-summary" dir="rtl">
+                توثق هذه المذكرة نتائج التحقق المستقل من النموذج وفق معايير {h(ex.get('framework'))}، بما يشمل فحص الدقة الإحصائية، وعدالة المخرجات، والمطابقة العددية مع المستندات المرجعية.
+            </div>
+        </section>
+
+        <section>
+            <h2>2. Scope & Methodology <small dir="rtl">٢. النطاق والمنهجية</small></h2>
+            <p><strong>Reference / المرجع:</strong> {h(scope.get('reference'))}</p>
+            <p><strong>Evaluator Suite:</strong> {h(', '.join(scope.get('evaluator_suite', [])) or 'Standard Banking Suite')}</p>
+            <div class="ar-summary" dir="rtl">{h(scope.get('summary_ar', ''))}</div>
+        </section>
+
+        <section>
+            <h2>3. Statistical Evaluation Results <small dir="rtl">٣. نتائج التحليل الإحصائي</small></h2>
+            <table>
+                <thead>
+                    <tr><th>Sample Size</th><th>Win Rate</th><th>95% CI</th><th>p-value</th><th>Adj. p-value</th><th>Cohen's d</th><th>Significance</th></tr>
+                </thead>
+                <tbody>
+                    {''.join(stat_rows) if stat_rows else '<tr><td colspan="7" style="text-align:center;color:#64748b">No statistical runs recorded for this model yet.</td></tr>'}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>4. Bias & Demographic Disparity <small dir="rtl">٤. تقييم التحيّز والإنصاف</small></h2>
+            <table>
+                <thead>
+                    <tr><th>Disparity Ratio</th><th>Threshold</th><th>Compared Groups</th><th>Verdict / النتيجة</th></tr>
+                </thead>
+                <tbody>
+                    {''.join(bias_rows) if bias_rows else '<tr><td colspan="4" style="text-align:center;color:#64748b">No demographic disparity test attached.</td></tr>'}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>5. Numerical Fidelity Assessment <small dir="rtl">٥. التدقيق العددي والمطابقة</small></h2>
+            <table>
+                <thead>
+                    <tr><th>Fidelity Score</th><th>Extracted Numbers</th><th>Status / الحالة</th><th>Flagged Figures / الأرقام المرصودة</th></tr>
+                </thead>
+                <tbody>
+                    {''.join(num_rows) if num_rows else '<tr><td colspan="4" style="text-align:center;color:#64748b">No numerical fidelity runs recorded.</td></tr>'}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>6. Human Review & Qualitative Insights <small dir="rtl">٦. المراجعة البشرية والملاحظات النوعية</small></h2>
+            <p><strong>Total Supervisory Decisions Recorded:</strong> {h(review.get('total_decisions', 0))}</p>
+            <div style="margin: 12px 0;"><strong>Recurring Rationale Themes / المحاور المتكررة:</strong><br>{themes_html or '<span style="color:#64748b">No themes recorded</span>'}</div>
+            <div class="ar-summary" dir="rtl">{h(review.get('summary_ar', ''))}</div>
+        </section>
+
+        <section>
+            <h2>7. Regulatory Artifact Mapping <small dir="rtl">٧. مطابقة المتطلبات التنظيمية</small></h2>
+            <p><strong>Coverage Status:</strong> {h(reg_map.get('present_count', 0))} Present, {h(reg_map.get('missing_count', 0))} Missing ({'Complete / مكتمل' if reg_map.get('coverage_complete') else 'Incomplete / غير مكتمل'})</p>
+            <table>
+                <thead>
+                    <tr><th>Required Governance Artifact</th><th>Status / الحالة</th></tr>
+                </thead>
+                <tbody>
+                    {''.join(map_rows)}
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>8. Findings & Action Plan <small dir="rtl">٨. الملاحظات وخطة العمل</small></h2>
+            <table>
+                <thead>
+                    <tr><th>Severity</th><th>Category</th><th>Finding / الملاحظة</th><th>Action / التوصية</th></tr>
+                </thead>
+                <tbody>
+                    {''.join(findings_rows) if findings_rows else '<tr><td colspan="4" style="text-align:center;color:#15803d">No regulatory findings or threshold breaches identified.</td></tr>'}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="signoff-box">
+            <h2>9. Supervisory Sign-off & Attestation <small dir="rtl">٩. الاعتماد والتوقيع الرقابي</small></h2>
+            <p>This validation memorandum constitutes supervisory evidence under {h(ex.get('framework'))}. It is effective upon signature by the designated Independent Model Validator.</p>
+            <p class="ar-text" dir="rtl">يُعتبر هذا التقرير دليلاً رقابياً نافذاً فور توقيعه من قبل جهة التحقق المستقلة المعتمدة لدى البنك.</p>
+            <div class="signoff-grid">
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Independent Model Validator / مسؤول التحقق المستقل</label>
+                    <div class="sign-field"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Title & Professional Designation / المسمى الوظيفي</label>
+                    <div class="sign-field"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Approval Status / قرار الاعتماد</label>
+                    <div class="sign-field"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Attestation Date / تاريخ التوقيع</label>
+                    <div class="sign-field"></div>
+                </div>
+            </div>
+        </section>
+        {f'''
+        <section class="signoff-box" style="margin-top: 24px; border-color: #0d9488; background: #f0fdfa;">
+            <h2 style="color: #0f766e;">10. Shari'ah Supervisory Board Attestation <small dir="rtl">١٠. اعتماد هيئة الرقابة الشرعية</small></h2>
+            <p>This model operates within Islamic financial product workflows (Murabaha / Mudarabah / Sukuk / Ijarah). Final operational deployment is subject to the ruling and pronouncement of the Internal Shari'ah Supervisory Committee (ISSC).</p>
+            <p class="ar-text" dir="rtl" style="color: #115e59;">يعمل هذا النموذج ضمن منتجات الصيرفة الإسلامية، ويخضع اعتماده النهائي لقرار واعتماد هيئة الرقابة الشرعية المستقلة لدى المؤسسة.</p>
+            <div class="signoff-grid">
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: #134e4a; font-weight: 700;">Shari'ah Scholar / عضو هيئة الرقابة الشرعية</label>
+                    <div class="sign-field" style="border-bottom-color: #0d9488;"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: #134e4a; font-weight: 700;">Designation / الصفة في الهيئة</label>
+                    <div class="sign-field" style="border-bottom-color: #0d9488;"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: #134e4a; font-weight: 700;">Shari'ah Ruling / قرار الهيئة (إجازة / عدم إجازة)</label>
+                    <div class="sign-field" style="border-bottom-color: #0d9488;"></div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; text-transform: uppercase; color: #134e4a; font-weight: 700;">Pronouncement Date / تاريخ الفتوى أو القرار</label>
+                    <div class="sign-field" style="border-bottom-color: #0d9488;"></div>
+                </div>
+            </div>
+        </section>
+        ''' if sign_off.get('sharia_board_applicable') else ''}
+    </div>
+</body>
+</html>"""
+

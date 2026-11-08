@@ -35,7 +35,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-logger = logging.getLogger("forkpoint.device_flow")
+logger = logging.getLogger("forkmark.device_flow")
 
 device_flow_router = APIRouter(tags=["auth"])
 
@@ -69,14 +69,14 @@ class DeviceAuthorization:
 
 
 class DeviceAuthRequest(BaseModel):
-    client_id: str = "forkpoint-cli"
+    client_id: str = "forkmark-cli"
     scope: str = "workspace:read workflow:read run:create"
 
 
 class DeviceTokenRequest(BaseModel):
     grant_type: str = "urn:ietf:params:oauth:grant-type:device_code"
     device_code: str
-    client_id: str = "forkpoint-cli"
+    client_id: str = "forkmark-cli"
 
 
 class DeviceApprovalRequest(BaseModel):
@@ -97,10 +97,10 @@ class DeviceCodeStore:
         self._redis = redis_client
 
     def _device_key(self, device_code: str) -> str:
-        return f"forkpoint:device:{device_code}"
+        return f"forkmark:device:{device_code}"
 
     def _user_code_key(self, user_code: str) -> str:
-        return f"forkpoint:usercode:{user_code}"
+        return f"forkmark:usercode:{user_code}"
 
     def store(self, auth: DeviceAuthorization):
         """Store a new device authorization."""
@@ -258,8 +258,8 @@ async def device_authorization(body: DeviceAuthRequest, request: Request):
         raise HTTPException(503, "Device flow not available (Redis required)")
 
     verification_uri = os.getenv(
-        "FP_VERIFICATION_URI",
-        "https://app.forkpoint.dev/activate"
+        "FM_VERIFICATION_URI",
+        os.getenv("FP_VERIFICATION_URI", "https://app.forkmark.ai/activate")
     )
 
     auth = DeviceAuthorization(

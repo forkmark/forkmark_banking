@@ -61,6 +61,11 @@ coverage.xml
 .env.*
 !.env.example
 
+# ── Generated reports ───────────────────────────────────────────────────────
+/reports/*.html
+/reports/*.docx
+!/reports/.gitkeep
+
 # ── forkmark_banking public repo: never publish ──────────────────────────
 # Hub71 / investor materials and outreach contacts.
 hub71_submission/

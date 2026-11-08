@@ -4,13 +4,13 @@ import logging
 from celery import Celery
 from celery.schedules import crontab
 
-logger = logging.getLogger("forkpoint.celery")
+logger = logging.getLogger("forkmark.celery")
 
-redis_url = os.getenv("FP_REDIS_URL", "redis://localhost:6379/0")
+redis_url = os.getenv("FM_REDIS_URL", os.getenv("FP_REDIS_URL", "redis://localhost:6379/0"))
 
 # Use Redis as both broker and result backend
 celery_app = Celery(
-    "forkpoint_tasks",
+    "forkmark_tasks",
     broker=redis_url,
     backend=redis_url
 )

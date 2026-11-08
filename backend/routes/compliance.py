@@ -13,8 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from backend.deps import db, principal, ui_read_auth, ui_write_auth
@@ -165,13 +165,48 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
         )
         for comp in db.list_comparisons(eval_run_id=er.id, limit=1000):
             champion = " ".join(
-                s.output_text for s in db.get_step_outputs_for_branch(comp.branch_a_id)
+                s.output_text for s in db.get_step_outputs_for_branch(comp.branch_a_id) if s.output_text
             )
             challenger = " ".join(
-                s.output_text for s in db.get_step_outputs_for_branch(comp.branch_b_id)
+                s.output_text for s in db.get_step_outputs_for_branch(comp.branch_b_id) if s.output_text
             )
-            if champion.strip() and challenger.strip():
-                fidelity_results.append(nf_eval.evaluate(champion, challenger))
+
+            # Grounding priority: Ground against the actual source document
+            # from run.input_data. An input user question is NOT a source document.
+            run_obj = db.get_run(comp.run_id) if comp.run_id else None
+            input_data = run_obj.input_data if (run_obj and isinstance(run_obj.input_data, dict)) else {}
+            source_doc = (
+                input_data.get("source_document")
+                or input_data.get("context")
+                or input_data.get("clause")
+                or input_data.get("document")
+                or input_data.get("policy")
+                or input_data.get("ground_truth")
+                or input_data.get("reference")
+                or ""
+            )
+            if not isinstance(source_doc, str):
+                source_doc = str(source_doc) if source_doc else ""
+
+            # Only evaluate numerical fidelity when a reference source document is present,
+            # OR when comparing challenger against champion as the baseline reference.
+            # Never treat user prompts (input_data['input']) as ground truth (which creates false-positive hallucinations).
+            # Label champion and challenger distinctly so the validation memo attributes findings properly.
+            if source_doc.strip():
+                if challenger.strip():
+                    fidelity_results.append(
+                        nf_eval.evaluate(source_doc, challenger, target_branch="challenger (candidate upgrade)")
+                    )
+                if champion.strip():
+                    fidelity_results.append(
+                        nf_eval.evaluate(source_doc, champion, target_branch="champion (baseline production)")
+                    )
+            elif champion.strip() and challenger.strip():
+                # In A/B champion vs challenger evaluation without external document grounding,
+                # baseline champion serves as the ground reference for the challenger.
+                fidelity_results.append(
+                    nf_eval.evaluate(champion, challenger, target_branch="challenger (candidate upgrade)")
+                )
 
     # Runs come back newest-first; the validation window spans the whole set.
     run_times = [r.created_at for r in runs if r.created_at]
@@ -206,6 +241,66 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
     )
 
 
+def _record_and_audit_report(
+    model_id: str,
+    framework: RegulatoryFramework,
+    memo: dict[str, Any],
+    fmt: str,
+    request: Request,
+    x_api_key: "str | None",
+) -> None:
+    """Atomically persist report metadata and write mandatory supervisory audit record.
+
+    If the audit log write fails, the entire transaction rolls back so that no
+    orphaned compliance_reports history rows can exist without an audit trail.
+    """
+    actor, role = principal(x_api_key)
+    ip = request.client.host if request.client else ""
+    mapping = memo["regulatory_mapping"]
+    findings = memo["findings_and_recommendations"]
+    report_id = uuid.uuid4().hex
+
+    try:
+        with db._conn() as conn:
+            conn.execute(
+                """INSERT INTO compliance_reports
+                   (id, model_id, framework, generated_at, findings_count,
+                    coverage_complete, format)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (
+                    report_id,
+                    model_id,
+                    framework.value,
+                    memo["generated_at"],
+                    len(findings),
+                    1 if mapping["coverage_complete"] else 0,
+                    fmt,
+                ),
+            )
+            db.add_audit_log(
+                "compliance.report_generated",
+                actor=actor,
+                actor_role=role,
+                resource_type="model",
+                resource_id=model_id,
+                detail={
+                    "report_id": report_id,
+                    "framework": framework.value,
+                    "format": fmt,
+                    "findings": len(findings),
+                    "coverage_complete": mapping["coverage_complete"],
+                },
+                ip=ip,
+                conn=conn,
+            )
+    except Exception as exc:
+        logger.error("Failed to record and audit compliance report on %s: %s", model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for compliance report: action refused to preserve regulatory compliance ({exc})",
+        ) from exc
+
+
 def _record_report(
     model_id: str, framework: RegulatoryFramework, memo: dict[str, Any], fmt: str
 ) -> None:
@@ -234,7 +329,7 @@ def _audit_report(
     model_id: str, framework: RegulatoryFramework, memo: dict[str, Any],
     fmt: str, request: Request, x_api_key: "str | None",
 ) -> None:
-    """Best-effort audit write when a validation memo is generated."""
+    """Mandatory supervisory audit write when a validation memo is generated."""
     try:
         actor, role = principal(x_api_key)
         ip = request.client.host if request.client else ""
@@ -249,8 +344,12 @@ def _audit_report(
             },
             ip=ip,
         )
-    except Exception:  # pragma: no cover - auditing must not fail the request
-        pass
+    except Exception as exc:
+        logger.error("Audit logging failed for compliance report on %s: %s", model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for compliance report: action refused to preserve regulatory compliance ({exc})",
+        ) from exc
 
 
 # ── Routes ──────────────────────────────────────────────────────────────────
@@ -283,8 +382,7 @@ def generate_report(
         raise HTTPException(404, f"Model not found: {model_id}") from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    _record_report(model_id, body.framework, memo, "json")
-    _audit_report(model_id, body.framework, memo, "json", request, x_api_key)
+    _record_and_audit_report(model_id, body.framework, memo, "json", request, x_api_key)
     return ValidationMemoResponse(**memo)
 
 
@@ -311,8 +409,7 @@ def generate_report_docx(
         raise HTTPException(404, f"Model not found: {model_id}") from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    _record_report(model_id, body.framework, memo, "docx")
-    _audit_report(model_id, body.framework, memo, "docx", request, x_api_key)
+    _record_and_audit_report(model_id, body.framework, memo, "docx", request, x_api_key)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     filename = f"validation_memo_{model_id}_{body.framework.value}_{stamp}.docx"
     return FileResponse(
@@ -320,6 +417,55 @@ def generate_report_docx(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=filename,
     )
+
+
+@router.post(
+    "/compliance/reports/{model_id}/html",
+    summary="Generate a printable model validation memo (HTML view)",
+)
+def generate_report_html(
+    model_id: str,
+    body: ComplianceReportRequest,
+    request: Request,
+    x_api_key: str = Header(None, alias="X-API-Key"),
+    _auth: object = Depends(ui_write_auth),
+) -> HTMLResponse:
+    """Generate the validation memo as a self-contained, printable HTML document."""
+    reporter = ComplianceReporter(db)
+    try:
+        evidence = _build_evidence(body)
+        if _evidence_is_empty(evidence):
+            evidence = _build_evidence_from_model(model_id)
+        memo = reporter.generate_validation_memo(model_id, body.framework, evidence)
+        html_content = reporter.generate_validation_memo_html(model_id, body.framework, evidence)
+    except KeyError as exc:
+        raise HTTPException(404, f"Model not found: {model_id}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _record_and_audit_report(model_id, body.framework, memo, "html", request, x_api_key)
+    return HTMLResponse(content=html_content)
+
+
+@router.get(
+    "/compliance/reports/{model_id}/preview",
+    summary="Preview a printable validation memo in the browser",
+)
+def preview_report_html(
+    model_id: str,
+    framework: RegulatoryFramework = Query(RegulatoryFramework.CBUAE_MMS),
+    request: Request = None,
+    _auth: object = Depends(ui_read_auth),
+) -> HTMLResponse:
+    """Preview the validation memo directly in the browser with print-to-PDF support."""
+    reporter = ComplianceReporter(db)
+    try:
+        evidence = _build_evidence_from_model(model_id)
+        html_content = reporter.generate_validation_memo_html(model_id, framework, evidence)
+    except KeyError as exc:
+        raise HTTPException(404, f"Model not found: {model_id}") from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return HTMLResponse(content=html_content)
 
 
 @router.get(

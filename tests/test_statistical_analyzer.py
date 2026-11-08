@@ -1,9 +1,49 @@
 """Unit tests for core.statistical_analyzer."""
 from __future__ import annotations
 
+import builtins
+from contextlib import contextmanager
 import math
+from pathlib import Path
+import sys
 
-import pytest
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    import pytest
+except ImportError:
+    class _MockPytest:
+        @staticmethod
+        def approx(val, rel=1e-6, abs=None):
+            class _Approx:
+                def __init__(self, target, rel, abs_tol):
+                    self.target = target
+                    self.rel = rel
+                    self.abs_tol = abs_tol
+
+                def __eq__(self, other):
+                    if math.isnan(self.target) and math.isnan(other):
+                        return True
+                    tol = self.abs_tol if self.abs_tol is not None else max(self.rel * max(builtins.abs(self.target), builtins.abs(other)), 1e-9)
+                    return builtins.abs(other - self.target) <= tol
+
+                def __repr__(self):
+                    return f"approx({self.target})"
+
+            return _Approx(val, rel, abs)
+
+        @staticmethod
+        @contextmanager
+        def raises(expected_exc, match=None):
+            try:
+                yield
+            except expected_exc as e:
+                if match and match not in str(e):
+                    raise AssertionError(f"Expected match '{match}', got: {e}")
+            else:
+                raise AssertionError(f"Expected {expected_exc.__name__} was not raised")
+
+    pytest = _MockPytest()
 
 from core.statistical_analyzer import (
     analyze,
@@ -225,3 +265,29 @@ def test_plain_english_arabic_direction_matches_effect_sign() -> None:
     ar = result.as_plain_english_arabic()
     assert result.effect_size >= 0
     assert "ترجّح الفرع أ (الأساس)" in ar
+
+
+if __name__ == "__main__":
+    import inspect
+
+    current_module = sys.modules[__name__]
+    test_funcs = [
+        obj
+        for name, obj in inspect.getmembers(current_module, inspect.isfunction)
+        if name.startswith("test_")
+    ]
+    passed = 0
+    failed = 0
+    for fn in test_funcs:
+        try:
+            fn()
+            print(f"  ✓ {fn.__name__}")
+            passed += 1
+        except Exception as e:
+            print(f"  ✗ {fn.__name__}: {e}")
+            failed += 1
+
+    if failed:
+        sys.exit(1)
+    print(f"All {passed} statistical analyzer tests passed successfully!")
+

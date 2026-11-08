@@ -4,9 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ForkMark</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <!-- Non-blocking font load for online environments; air-gapped deployments fall back cleanly to system fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" /></noscript>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       /* Institutional light theme is the first-paint default — the palette a
@@ -18,7 +20,7 @@
         --border: #d6dae3; --accent: #1f5fa8; --green: #157347;
         --orange: #b45309; --red: #b42318; --purple: #6d4aa3;
         --text: #16202e; --muted: #5a6473;
-        --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Cairo', 'Tahoma', 'Arial', sans-serif;
         --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
       }
       /* Tabular figures so financial numbers align in tables, stat cards, and matrices. */
@@ -45,6 +47,16 @@
         #root > div > main { padding: 12px !important; }
         /* Stat cards: 2-col → 1-col */
         [data-layout="stats"] { grid-template-columns: 1fr !important; }
+      }
+      /* ── Bidirectional & Arabic typographic styling ───────────────── */
+      [dir="auto"], [dir="rtl"], .arabic-text {
+        font-family: 'Cairo', 'Tahoma', var(--font);
+        line-height: 1.7;
+      }
+      bdi { unicode-bidi: isolate; }
+      @media print {
+        header, nav, aside, .no-print { display: none !important; }
+        body { background: #fff !important; color: #000 !important; }
       }
     </style>
   </head>

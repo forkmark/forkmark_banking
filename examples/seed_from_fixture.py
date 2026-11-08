@@ -21,7 +21,12 @@ Environment:
 Requirements:   pip install httpx
 """
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
+import urllib.request
+import urllib.error
 import json
 import re
 import time
@@ -37,19 +42,48 @@ if _api_key:
     HEADERS["X-API-Key"] = _api_key
 
 
+def _urllib_req(method, url, data=None, timeout=10):
+    body = json.dumps(data).encode("utf-8") if data is not None else None
+    req = urllib.request.Request(url, data=body, headers=HEADERS, method=method.upper())
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            return resp.status, json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8") if he.fp else ""
+        try:
+            parsed = json.loads(err_body)
+        except Exception:
+            parsed = {"detail": err_body}
+        return he.code, parsed
+    except urllib.error.URLError as ue:
+        raise ConnectionError(f"Cannot connect to {url}: {ue}")
+
+
 def api(method, path, data=None, _retries=4, _backoff=1.0):
     url = BASE_URL + path
     for attempt in range(_retries):
         try:
-            r = getattr(httpx, method)(url, json=data, headers=HEADERS, timeout=10)
-            if r.status_code == 429:
-                wait = _backoff * (2 ** attempt)
-                print(f"  [rate-limit] backing off {wait:.1f}s...")
-                time.sleep(wait)
-                continue
-            r.raise_for_status()
-            return r.json()
-        except httpx.ConnectError:
+            if httpx is not None:
+                r = getattr(httpx, method)(url, json=data, headers=HEADERS, timeout=10)
+                if r.status_code == 429:
+                    wait = _backoff * (2 ** attempt)
+                    print(f"  [rate-limit] backing off {wait:.1f}s...")
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                return r.json()
+            else:
+                code, res_data = _urllib_req(method, url, data=data, timeout=10)
+                if code == 429:
+                    wait = _backoff * (2 ** attempt)
+                    print(f"  [rate-limit] backing off {wait:.1f}s...")
+                    time.sleep(wait)
+                    continue
+                if code >= 400:
+                    raise RuntimeError(f"HTTP {code}: {res_data}")
+                return res_data
+        except (ConnectionError, (httpx.ConnectError if httpx else ConnectionError)):
             print(f"\n[error] Cannot connect to {BASE_URL}")
             print("  Make sure the Forkmark backend is running:")
             print("  cd forkmark && uvicorn backend.main:app --reload\n")
@@ -67,26 +101,40 @@ def check_backend():
     """Verify backend is reachable and bootstrap API key if needed."""
     global _api_key
     try:
-        r = httpx.get(BASE_URL + "/api/stats", timeout=5)
-        r.raise_for_status()
+        if httpx is not None:
+            r = httpx.get(BASE_URL + "/api/stats", timeout=5)
+            r.raise_for_status()
+        else:
+            code, _ = _urllib_req("GET", BASE_URL + "/api/stats", timeout=5)
+            if code >= 400:
+                raise RuntimeError(f"HTTP {code}")
     except Exception:
         print(f"[error] Cannot reach {BASE_URL}/api/stats")
         sys.exit(1)
     if not _api_key:
         try:
-            kr = httpx.post(
-                BASE_URL + "/api/keys",
-                json={"name": "demo-seeder"},
-                headers={"Content-Type": "application/json"},
-                timeout=10,
-            )
-            kr.raise_for_status()
-            _api_key = kr.json().get("raw_key", "")
+            if httpx is not None:
+                kr = httpx.post(
+                    BASE_URL + "/api/keys",
+                    json={"name": "demo-seeder"},
+                    headers={"Content-Type": "application/json"},
+                    timeout=10,
+                )
+                kr.raise_for_status()
+                res = kr.json()
+            else:
+                code, res = _urllib_req("POST", BASE_URL + "/api/keys", data={"name": "demo-seeder"}, timeout=10)
+                if code == 401:
+                    print("[error] API keys exist. Set FORKMARK_API_KEY env var.")
+                    sys.exit(1)
+                if code >= 400:
+                    raise RuntimeError(f"HTTP {code}: {res}")
+            _api_key = res.get("raw_key", "")
             if _api_key:
                 HEADERS["X-API-Key"] = _api_key
                 print(f"  [auth] Bootstrapped API key: {_api_key[:12]}...")
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
+        except Exception as e:
+            if "401" in str(e):
                 print("[error] API keys exist. Set FORKMARK_API_KEY env var.")
                 sys.exit(1)
 

@@ -6,6 +6,7 @@ CRUD over that inventory plus the revalidation-due query model risk teams rely o
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -21,6 +22,7 @@ from core.model_inventory import (
 )
 from core.regulatory_frameworks import RegulatoryFramework
 
+logger = logging.getLogger("forkmark.inventory")
 router = APIRouter(prefix="/api", tags=["inventory"])
 
 _inventory = ModelInventory(db)
@@ -28,7 +30,7 @@ _inventory = ModelInventory(db)
 
 def _audit(action: str, model_id: str, request: Request,
            x_api_key: "str | None", **detail) -> None:
-    """Best-effort audit write for inventory mutations."""
+    """Mandatory supervisory audit write. Refuses action if audit trail cannot be secured."""
     try:
         actor, role = principal(x_api_key)
         ip = request.client.host if request.client else ""
@@ -36,8 +38,12 @@ def _audit(action: str, model_id: str, request: Request,
             action, actor=actor, actor_role=role, resource_type="model",
             resource_id=model_id, detail=detail, ip=ip,
         )
-    except Exception:  # pragma: no cover - auditing must not fail the request
-        pass
+    except Exception as exc:
+        logger.error("Audit logging failed for %s on model %s: %s", action, model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for {action}: supervisory action refused to preserve regulatory compliance ({exc})",
+        ) from exc
 
 
 # ── Schemas ─────────────────────────────────────────────────────────────────
@@ -146,13 +152,18 @@ def create_model(body: ModelCreate, request: Request,
         present_artifacts=list(body.present_artifacts),
         evaluation_signals=dict(body.evaluation_signals),
     )
+    actor, role = principal(x_api_key)
+    ip = request.client.host if request.client else ""
     try:
-        created = _inventory.add_model(record)
+        created = _inventory.add_model(record, audit_actor=actor, audit_role=role, ip=ip)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
-    _audit("model.create", created.model_id, request, x_api_key,
-           risk_tier=created.risk_tier.value,
-           frameworks=[f.value for f in created.regulatory_frameworks])
+    except Exception as exc:
+        logger.error("Audit logging failed during model creation for %s: %s", record.model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for model.create: supervisory action refused to preserve regulatory compliance ({exc})",
+        ) from exc
     return _to_response(created)
 
 
@@ -208,15 +219,23 @@ def update_model(
 ) -> ModelResponse:
     """Patch a model record. Only supplied fields are changed; setting
     ``last_validated_at`` re-derives the next revalidation due date."""
+    actor, role = principal(x_api_key)
+    ip = request.client.host if request.client else ""
     changes: dict[str, Any] = {name: getattr(body, name) for name in body.model_fields_set}
     try:
-        updated = _inventory.update_model(model_id, **changes)
+        updated = _inventory.update_model(
+            model_id, audit_actor=actor, audit_role=role, ip=ip, **changes
+        )
     except KeyError as exc:
         raise HTTPException(404, f"Model not found: {model_id}") from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    _audit("model.update", model_id, request, x_api_key,
-           fields=sorted(changes.keys()))
+    except Exception as exc:
+        logger.error("Audit logging failed during model update for %s: %s", model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for model.update: supervisory action refused to preserve regulatory compliance ({exc})",
+        ) from exc
     return _to_response(updated)
 
 
@@ -228,8 +247,25 @@ def update_model(
 def delete_model(model_id: str, request: Request,
                  x_api_key: str = Header(None, alias="X-API-Key"),
                  _auth: object = Depends(ui_write_auth)) -> None:
-    """Remove a model from the inventory."""
-    if not _inventory.delete_model(model_id):
+    """Remove a model from the inventory.
+
+    The deletion and its supervisory audit log entry are committed atomically
+    in the same database transaction. If audit log persistence fails, the model
+    deletion is rolled back and refused.
+    """
+    actor, role = principal(x_api_key)
+    ip = request.client.host if request.client else ""
+    if _inventory.get_model(model_id) is None:
         raise HTTPException(404, f"Model not found: {model_id}")
-    _audit("model.delete", model_id, request, x_api_key)
+    try:
+        if not _inventory.delete_model(model_id, audit_actor=actor, audit_role=role, ip=ip):
+            raise HTTPException(404, f"Model not found: {model_id}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Audit logging failed during model delete for %s: %s", model_id, exc)
+        raise HTTPException(
+            500,
+            f"Audit trail write failed for model.delete: supervisory action refused to preserve regulatory compliance ({exc})",
+        ) from exc
     return None

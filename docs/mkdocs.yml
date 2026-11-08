@@ -48,6 +48,7 @@ nav:
   - Deployment:
     - Self-Hosted: deployment/self-hosted.md
     - Multi-Tenancy: deployment/multi-tenancy.md
+    - CBUAE & GCC Compliance: deployment/cbuae-compliance.md
     - Production Checklist: deployment/production-checklist.md
   - Evaluators:
     - Built-in Evaluators: evaluators/built-in.md

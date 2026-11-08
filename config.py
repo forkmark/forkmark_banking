@@ -66,8 +66,12 @@ class Config:
     VERSION  = "0.1.2"
 
     # ── Database & Cache ───────────────────────────────────────────────────────
-    # PRODUCTION: FM_DATABASE_URL must point to PostgreSQL (via PgBouncer)
-    # DEV ONLY:   Leave unset to use SQLite (single-user, no concurrency)
+    # PRODUCTION: FM_DATABASE_URL must point to PostgreSQL (via PgBouncer).
+    # DEV ONLY:   Leave unset to use SQLite.
+    # CRITICAL:   SQLite is strictly single-process / single-worker only. Multi-process
+    #             concurrency on SQLite will result in database lock contention and
+    #             refused supervisory audit writes. In production (multi-worker Uvicorn
+    #             or Kubernetes replicas), PostgreSQL (FM_DATABASE_URL) is mandatory.
     DB_PATH      = Path(os.getenv("FM_DB_PATH",
                                    str(Path.home() / ".forkmark" / "forkmark.db")))
     DATABASE_URL   = os.getenv("FM_DATABASE_URL", "")  # postgresql://... for production

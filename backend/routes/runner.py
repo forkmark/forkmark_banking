@@ -1,6 +1,7 @@
 """No-code workflow runner and prompt playground endpoints."""
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
@@ -14,6 +15,9 @@ from backend.deps import (
 from core.models import EvalRunStatus
 
 router = APIRouter(prefix="/api", tags=["runner"])
+
+# Strong references for background scoring tasks to prevent premature Python GC
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
 # ── Runner schemas ───────────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ def _call_llm(api_key: str, base_url: str, model_id: str,
 # ── Runner endpoint ──────────────────────────────────────────────────────────
 
 @router.post("/runner", status_code=201, response_model=RunnerResponse)
-def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
+async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
     import concurrent.futures as _cf
 
     # Resolve credentials per branch (or shared fallback)
@@ -130,8 +134,9 @@ def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
     if not body.test_cases:
         raise HTTPException(400, "test_cases must not be empty")
 
-    wf = db.upsert_workflow(body.workflow_name)
-    er = db.create_eval_run(
+    wf = await asyncio.to_thread(db.upsert_workflow, body.workflow_name)
+    er = await asyncio.to_thread(
+        db.create_eval_run,
         workflow_id=wf.id, name=body.eval_run_name,
         description=f"No-code runner: {body.branch_a.model_id} vs {body.branch_b.model_id}",
         branch_a_config={"name": body.branch_a.name, "model_id": body.branch_a.model_id,
@@ -143,13 +148,14 @@ def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
     errors: list[str] = []
 
     for tc in body.test_cases:
-        run = db.create_run(
+        run = await asyncio.to_thread(
+            db.create_run,
             workflow_id=wf.id,
             input_data={"input": tc.input, "label": tc.label},
             eval_run_id=er.id, test_case_label=tc.label,
         )
-        branch_a_obj = db.create_branch(run.id, wf.id, body.branch_a.name, body.branch_a.model_id)
-        branch_b_obj = db.create_branch(run.id, wf.id, body.branch_b.name, body.branch_b.model_id)
+        branch_a_obj = await asyncio.to_thread(db.create_branch, run.id, wf.id, body.branch_a.name, body.branch_a.model_id)
+        branch_b_obj = await asyncio.to_thread(db.create_branch, run.id, wf.id, body.branch_b.name, body.branch_b.model_id)
 
         def _run_branch(branch_cfg, branch_obj, b_key, b_url):
             context_messages: list[dict] = []
@@ -172,34 +178,33 @@ def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
                 except Exception as exc:
                     errors.append(f"[{tc.label}/{branch_cfg.name}/{step.name}] {exc}")
 
-        with _cf.ThreadPoolExecutor(max_workers=2) as pool:
-            fa = pool.submit(_run_branch, body.branch_a, branch_a_obj, key_a, url_a)
-            fb = pool.submit(_run_branch, body.branch_b, branch_b_obj, key_b, url_b)
-            fa.result()
-            fb.result()
+        # Execute both branches concurrently across thread pool
+        loop = asyncio.get_running_loop()
+        await asyncio.gather(
+            loop.run_in_executor(None, _run_branch, body.branch_a, branch_a_obj, key_a, url_a),
+            loop.run_in_executor(None, _run_branch, body.branch_b, branch_b_obj, key_b, url_b),
+        )
 
         step_names = [s.name for s in body.branch_a.steps]
-        comp = db.create_comparison(
+        comp = await asyncio.to_thread(
+            db.create_comparison,
             run_id=run.id, workflow_id=wf.id,
             branch_a_id=branch_a_obj.id, branch_b_id=branch_b_obj.id,
             step_names=step_names, eval_run_id=er.id,
             test_case_label=tc.label, scoring_status="pending",
         )
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(async_enqueue_scoring(db, comp.id, branch_a_obj.id, branch_b_obj.id, []))
-        except RuntimeError:
-            from core.comparator import divergence_score as _div_score
-            steps_a = db.get_step_outputs_for_branch(branch_a_obj.id)
-            steps_b = db.get_step_outputs_for_branch(branch_b_obj.id)
-            text_a = " ".join(s.output_text for s in steps_a)
-            text_b = " ".join(s.output_text for s in steps_b)
-            div = _div_score(text_a, text_b) if (text_a or text_b) else None
-            db.update_comparison_scoring(comp.id, divergence_score=div, scoring_status="completed")
-        db.complete_run(run.id)
+        
+        # Enqueue async scoring directly with a retained reference to prevent premature GC
+        score_task = asyncio.create_task(
+            async_enqueue_scoring(db, comp.id, branch_a_obj.id, branch_b_obj.id, [])
+        )
+        _BACKGROUND_TASKS.add(score_task)
+        score_task.add_done_callback(_BACKGROUND_TASKS.discard)
+        await asyncio.to_thread(db.complete_run, run.id)
 
-    db.update_eval_run_status(er.id, EvalRunStatus.COMPLETED, total_cases=len(body.test_cases))
+    await asyncio.to_thread(
+        db.update_eval_run_status, er.id, EvalRunStatus.COMPLETED, total_cases=len(body.test_cases)
+    )
     return {"eval_run_id": er.id, "errors": errors}
 
 

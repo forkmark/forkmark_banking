@@ -323,5 +323,17 @@ export const api = {
   analyzeStatistics:        (b)         => post('/statistics/analyze', b),
   powerAnalysis:            (b)         => post('/statistics/power-analysis', b),
   generateComplianceReport: (mid, b)    => post(`/compliance/reports/${mid}`, b),
+  getComplianceReportPreviewHtml: async (mid, framework = 'cbuae_mms') => {
+    const key = getActiveKey()
+    const headers = key ? { 'X-API-Key': key } : {}
+    const resp = await fetch(`${BASE}/compliance/reports/${encodeURIComponent(mid)}/preview?framework=${encodeURIComponent(framework)}`, {
+      headers,
+    })
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }))
+      throw new ApiError(err?.detail || err?.message || 'Failed to load report preview', resp.status)
+    }
+    return await resp.text()
+  },
   complianceReportHistory:  (mid)       => get(`/compliance/reports/${mid}/history`),
 }

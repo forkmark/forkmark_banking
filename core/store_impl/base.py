@@ -724,12 +724,20 @@ def _audit_entry_hash(prev_hash, entry_id, ts, actor, actor_role, action,
 
     ``detail`` may be a dict or a JSON string; it is canonicalised first so the
     write-time and verify-time hashes match regardless of storage dialect.
+    ``ts`` is normalized to ISO-8601 string to protect against driver timestamp conversions.
     """
+    ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts or "")
     payload = "\x1f".join([
         prev_hash or _AUDIT_GENESIS_HASH,
-        str(entry_id or ""), str(ts or ""), str(actor or ""),
-        str(actor_role or ""), str(action or ""), str(resource_type or ""),
-        str(resource_id or ""), _audit_canonical_detail(detail), str(ip or ""),
+        str(entry_id or ""),
+        ts_str,
+        str(actor or ""),
+        str(actor_role or ""),
+        str(action or ""),
+        str(resource_type or ""),
+        str(resource_id or ""),
+        _audit_canonical_detail(detail),
+        str(ip or ""),
     ])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -811,11 +819,11 @@ def _migration_v3(c):
 
 
 def _migration_v4(c):
-    """v4 — Flywheel 1: enrich test_cases with domain/industry/use-case metadata.
+    """v4 — Model test case metadata: enrich test_cases with domain/industry/use-case metadata.
 
     New columns on test_cases:
-      domain         – high-level domain (e.g. 'customer_support', 'legal', 'healthcare')
-      industry       – vertical (e.g. 'ecommerce', 'finserv', 'healthcare')
+      domain         – high-level domain (e.g. 'credit_risk', 'compliance', 'retail_banking')
+      industry       – vertical (e.g. 'finserv', 'wealth_management', 'islamic_banking')
       use_case_type  – 'safety' | 'edge_case' | 'regression' | 'happy_path' | 'adversarial'
       failure_mode   – what failure the test is designed to catch (free text)
       test_goal      – what quality signal this case measures (free text)
@@ -828,7 +836,7 @@ def _migration_v4(c):
     _add_column(c, "test_cases", "use_case_type", "TEXT NOT NULL DEFAULT ''")
     _add_column(c, "test_cases", "failure_mode",  "TEXT NOT NULL DEFAULT ''")
     _add_column(c, "test_cases", "test_goal",     "TEXT NOT NULL DEFAULT ''")
-    # Create flywheel tables if not yet present (idempotent via IF NOT EXISTS)
+    # Create test case performance tables if not yet present (idempotent via IF NOT EXISTS)
     c.executescript("""
         CREATE TABLE IF NOT EXISTS test_case_performance (
             id               TEXT PRIMARY KEY,
@@ -849,13 +857,13 @@ def _migration_v4(c):
 
 
 def _migration_v5(c):
-    """v5 — Flywheel 2: enrich decisions with provenance + category; add
+    """v5 — Human oversight audit trail: enrich decisions with provenance + category; add
     reviewer_profiles and data_consent tables.
 
     New columns on decisions:
       provenance_hash – SHA-256(workflow_id:label:input_snippet) for
-                        cross-customer correlation without exposing raw text
-      data_category   – auto-classified category tag (safety, legal, billing, …)
+                        audit trail tracking without storing raw PII
+      data_category   – auto-classified category tag (safety, legal, compliance, …)
     """
     _add_column(c, "decisions", "provenance_hash", "TEXT NOT NULL DEFAULT ''")
     _add_column(c, "decisions", "data_category",   "TEXT NOT NULL DEFAULT ''")
@@ -1271,8 +1279,9 @@ class DatabaseBase:
             self._adapter = _PostgreSQLConn(database_url)
         else:
             self._adapter = _SQLiteConn(str(db_path))
-        self._init()
-        self._migrate()
+        if os.getenv("FM_SKIP_STARTUP_MIGRATIONS", "false").lower() not in ("true", "1", "yes"):
+            self._init()
+            self._migrate()
 
     @contextmanager
     def _conn(self):
@@ -1295,6 +1304,11 @@ class DatabaseBase:
     def is_postgres(self) -> bool:
         """True when the backing store is PostgreSQL (drives JSONB column typing)."""
         return isinstance(self._adapter, _PostgreSQLConn)
+
+    @property
+    def adapter(self):
+        """Underlying storage adapter (_SQLiteConn or _PostgreSQLConn)."""
+        return self._adapter
 
     def _init(self):
         with self._conn() as c:
@@ -1499,10 +1513,10 @@ class DatabaseBase:
             CREATE INDEX IF NOT EXISTS idx_providers_default
                 ON llm_providers(is_default);
 
-            -- ── Flywheel 1: test-case performance corpus ──────────────────────
+            -- ── Test-case performance tracking ────────────────────────────────
             -- One row per (test_case_label, eval_run_id).
             -- Populated automatically when comparisons are created and decisions recorded.
-            -- Powers automated test-case generation: tracks which inputs surface
+            -- Powers test suite analytics: tracks which inputs surface
             -- divergence, which models win, and reviewer confidence over time.
             CREATE TABLE IF NOT EXISTS test_case_performance (
                 id               TEXT PRIMARY KEY,
@@ -1518,9 +1532,9 @@ class DatabaseBase:
                 FOREIGN KEY (eval_run_id)   REFERENCES eval_runs(id) ON DELETE CASCADE
             );
 
-            -- ── Flywheel 2a: reviewer identity & expertise ────────────────────
-            -- Enriches preference exports with reviewer quality metadata.
-            -- AI companies pay more for data with auditable reviewer provenance.
+            -- ── Reviewer identity & domain expertise ──────────────────────────
+            -- Enriches human review records with validator qualification metadata
+            -- required for Model Oversight Committee independent validation reports.
             CREATE TABLE IF NOT EXISTS reviewer_profiles (
                 reviewer_id      TEXT PRIMARY KEY,
                 display_name     TEXT NOT NULL DEFAULT '',
@@ -1531,14 +1545,13 @@ class DatabaseBase:
                 updated_at       TEXT NOT NULL
             );
 
-            -- ── Flywheel 2b: data-sharing consent ────────────────────────────
-            -- Each customer must explicitly opt in before their preference data
-            -- is included in anonymized B2B exports.
+            -- ── Data governance & access boundaries ───────────────────────────
+            -- Explicit policy scopes governing model evaluation access and reporting.
             CREATE TABLE IF NOT EXISTS data_consent (
                 id           TEXT PRIMARY KEY,
                 scope        TEXT NOT NULL DEFAULT 'global', -- global | workflow
                 workflow_id  TEXT,                           -- NULL when scope='global'
-                consent_type TEXT NOT NULL,                  -- training_data | anonymized_export | aggregated_stats
+                consent_type TEXT NOT NULL,                  -- internal_validation | audit_report | aggregated_stats
                 granted_by   TEXT NOT NULL,
                 granted_at   TEXT NOT NULL,
                 expires_at   TEXT,                          -- NULL = no expiry

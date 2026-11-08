@@ -35,12 +35,17 @@ Industry context:
 """
 from __future__ import annotations
 
+import ipaddress
+import logging
 import math
 import os
 import re
 import threading
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
+
+logger = logging.getLogger("forkmark.comparator")
 
 # Shared httpx client for OpenAI API calls — reuses TCP connections
 _httpx_client = None
@@ -170,18 +175,132 @@ def _semantic_divergence(a: str, b: str) -> Optional[float]:
         return None
 
 
+def _is_internal_host(hostname: str) -> bool:
+    """True if hostname resolves to an on-premise, internal, or loopback network."""
+    if not hostname:
+        return False
+    hostname = hostname.lower().strip()
+
+    # Custom internal hostnames or domain suffixes configured by the bank
+    extra_internal = os.getenv("FM_INTERNAL_LLM_HOSTS", "").lower().split(",")
+    for host in extra_internal:
+        h = host.strip()
+        if h and (hostname == h or hostname.endswith(f".{h}")):
+            return True
+
+    # Standard loopback identifiers
+    if hostname in ("localhost", "localhost.localdomain"):
+        return True
+
+    # Single-label names without dots (Docker / Kubernetes internal service names, e.g. 'ollama', 'vllm')
+    if "." not in hostname:
+        return True
+
+    # Private internal domain suffixes
+    internal_suffixes = (
+        ".local",
+        ".internal",
+        ".cluster.local",
+        ".corp",
+        ".lan",
+        ".home",
+        ".arpa",
+        ".svc",
+        ".svc.cluster.local",
+    )
+    if any(hostname.endswith(suffix) for suffix in internal_suffixes):
+        return True
+
+    # IP address check: RFC 1918 private subnets, loopback, or link-local
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except ValueError:
+        pass
+
+    return False
+
+
+def _is_external_endpoint(base_url: str) -> bool:
+    """True if endpoint routes outside internal/private networks (i.e. public cloud).
+
+    Uses a strict allowlist of internal/private hosts (localhost, single-label K8s services,
+    RFC 1918 private IPs, .internal, .cluster.local, etc.). Any other public endpoint
+    (e.g., api.openai.com, api.anthropic.com, *.openai.azure.com, openrouter.ai,
+    generativelanguage.googleapis.com) is treated as external cloud egress and refused
+    unless FM_ALLOW_EXTERNAL_LLM_EGRESS=true.
+    """
+    if not base_url:
+        return True
+    try:
+        target = base_url if "://" in base_url else f"http://{base_url}"
+        parsed = urlparse(target)
+        hostname = parsed.hostname
+        if not hostname:
+            return True
+        return not _is_internal_host(hostname)
+    except Exception:
+        return True
+
+
+def _get_provider_credentials() -> tuple[Optional[str], str]:
+    """Retrieve API key and base URL from environment first, then DB settings/providers.
+
+    Enforces sovereign banking guardrails: public cloud egress requires
+    FM_ALLOW_EXTERNAL_LLM_EGRESS=true to prevent bank outputs leaving on-soil premises.
+    """
+    api_key = os.getenv("FM_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("FM_JUDGE_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    allow_external = os.getenv("FM_ALLOW_EXTERNAL_LLM_EGRESS", "false").lower() in ("true", "1", "yes")
+
+    if not api_key:
+        try:
+            from backend.deps import db
+            default_prov = db.get_default_provider_credentials()
+            if default_prov and default_prov.get("api_key"):
+                api_key = default_prov["api_key"]
+                base_url = (default_prov.get("base_url") or base_url).rstrip("/")
+            else:
+                db_key = db.get_setting("openai_api_key")
+                db_base = db.get_setting("openai_base_url")
+                if db_key:
+                    api_key = db_key
+                    if db_base:
+                        base_url = db_base.rstrip("/")
+        except Exception:
+            pass
+
+    if api_key and _is_external_endpoint(base_url) and not allow_external:
+        logger.warning(
+            "External LLM egress to '%s' blocked by sovereign data residency policy. "
+            "Set FM_ALLOW_EXTERNAL_LLM_EGRESS=true to permit off-premise LLM scoring.",
+            base_url,
+        )
+        return None, base_url
+
+    return api_key, base_url
+
+
 # ── 3. OpenAI embedding scorer ────────────────────────────────────────────────
 
 def _openai_divergence(a: str, b: str) -> Optional[float]:
     """Cosine divergence via OpenAI embeddings API. None if key missing."""
-    api_key = os.getenv("FM_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    api_key, base_url = _get_provider_credentials()
     if not api_key:
         return None
     model = os.getenv("FM_EMBED_MODEL", "text-embedding-3-small")
+    if "embeddings" in base_url:
+        embed_url = base_url
+    elif "azure.com" in base_url.lower():
+        embed_url = base_url if base_url.endswith("/embeddings") else f"{base_url}/embeddings"
+    elif base_url.endswith("/v1"):
+        embed_url = f"{base_url}/embeddings"
+    else:
+        embed_url = f"{base_url}/v1/embeddings"
     try:
         client = _get_httpx_client()
         resp = client.post(
-            "https://api.openai.com/v1/embeddings",
+            embed_url,
             json={"input": [a or " ", b or " "], "model": model},
             headers={"Authorization": f"Bearer {api_key}",
                      "Content-Type": "application/json"},
@@ -226,9 +345,8 @@ No explanation. No other text."""
 
 def _llm_judge_divergence(a: str, b: str) -> Optional[float]:
     """G-Eval style LLM-as-judge divergence. None if API key missing."""
-    api_key  = os.getenv("FM_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("FM_JUDGE_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model    = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
+    api_key, base_url = _get_provider_credentials()
+    model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
 
     if not api_key:
         return None
@@ -238,10 +356,18 @@ def _llm_judge_divergence(a: str, b: str) -> Optional[float]:
     b_trunc = b[:2000] + ("…" if len(b) > 2000 else "")
     prompt  = _JUDGE_PROMPT.format(output_a=a_trunc, output_b=b_trunc)
 
+    if "chat/completions" in base_url:
+        chat_url = base_url
+    elif "azure.com" in base_url.lower():
+        chat_url = base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
+    elif base_url.endswith("/v1"):
+        chat_url = f"{base_url}/chat/completions"
+    else:
+        chat_url = f"{base_url}/v1/chat/completions"
     try:
         client = _get_httpx_client()
         resp = client.post(
-            f"{base_url}/chat/completions",
+            chat_url,
             json={
                 "model":       model,
                 "messages":    [{"role": "user", "content": prompt}],

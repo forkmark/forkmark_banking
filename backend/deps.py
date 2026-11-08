@@ -14,7 +14,7 @@ import uuid
 from collections import deque
 from typing import Dict, Optional
 
-from fastapi import Header, HTTPException, Request, Depends, Query
+from fastapi import Header, HTTPException, Request, Depends
 
 from config import config
 from core.store import Database
@@ -213,8 +213,13 @@ def _ui_auth(request: Request, x_api_key: Optional[str], min_role: str) -> Optio
     rate_id = x_api_key or (request.client.host if request.client else "unknown")
     if not _check_rate(f"ui:{rate_id}"):
         raise HTTPException(429, "Rate limit exceeded")
-    if x_api_key:
-        ak = db.verify_api_key(x_api_key)
+    key = x_api_key
+    if not key:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            key = auth_header[7:].strip()
+    if key:
+        ak = db.verify_api_key(key)
         if not ak:
             raise HTTPException(401, "Invalid or revoked API key")
         if _role_rank(ak.role) < _ROLE_RANK[min_role]:
@@ -223,7 +228,7 @@ def _ui_auth(request: Request, x_api_key: Optional[str], min_role: str) -> Optio
                 f"Insufficient role: '{min_role}' or higher required "
                 f"(this key is '{ak.role}').",
             )
-        return x_api_key
+        return key
     if config.REQUIRE_UI_AUTH:
         raise HTTPException(401, "X-API-Key required (FM_REQUIRE_UI_AUTH is enabled)")
     return None

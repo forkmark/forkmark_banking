@@ -14,13 +14,20 @@ Use this checklist before deploying ForkMark to production.
 
 ## Database
 
-- [ ] Use PostgreSQL 14+ (not SQLite)
+- [ ] Use PostgreSQL 14+ with PgBouncer for multi-worker production. SQLite is strictly single-process and must NEVER be used across multiple worker processes (concurrent SQLite workers risk lock contention and audit rejection under supervisory load).
 - [ ] Set `FM_DATABASE_URL` to your PostgreSQL connection string
-- [ ] Run Alembic migrations: `alembic upgrade head`
+- [ ] Apply sequence-partitioned tables for high-throughput supervisory audit logs: `psql -f scripts/postgres_partitioning.sql`
+- [ ] Verify audit log tamper-evident hash chain integrity: `GET /api/audit/verify`
 - [ ] Enable connection pooling via PgBouncer for >50 concurrent connections
 - [ ] Configure `FM_PG_POOL_MIN` and `FM_PG_POOL_MAX` appropriately
 - [ ] Set up automated backups
 - [ ] Enable SSL for database connections
+
+## Regional & Sovereign Data Residency
+
+- [ ] Set `FM_DEFAULT_REGION=me-central-1` for UAE/GCC on-soil deployments
+- [ ] Verify regional database isolation and ensure cross-region egress is blocked
+- [ ] Verify local font assets / Cairo font rendering for air-gapped banking VPCs
 
 ## Caching and messaging
 

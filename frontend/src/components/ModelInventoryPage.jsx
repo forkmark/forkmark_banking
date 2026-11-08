@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { api, dispatchApiError, postDownloadFile } from '../api.js'
+import { api, dispatchApiError, postDownloadFile, getActiveKey } from '../api.js'
 import { PageHeader } from './ui'
 import {
   pageStyle, panel, panelHeader, tableStyles as T,
@@ -325,6 +325,19 @@ function ReportModal({ model, frameworks, onClose }) {
   const [framework, setFramework] = useState(applicable[0] || 'cbuae_mms')
   const [memo, setMemo] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [viewMode, setViewMode] = useState('summary')
+  const [htmlContent, setHtmlContent] = useState('')
+  const [loadingHtml, setLoadingHtml] = useState(false)
+
+  useEffect(() => {
+    if (viewMode === 'document') {
+      setLoadingHtml(true)
+      api.getComplianceReportPreviewHtml(model.model_id, framework)
+        .then(html => setHtmlContent(html))
+        .catch(e => dispatchApiError(e.message || 'Failed to load report preview'))
+        .finally(() => setLoadingHtml(false))
+    }
+  }, [framework, viewMode, model.model_id])
 
   async function generate() {
     setBusy(true)
@@ -353,37 +366,126 @@ function ReportModal({ model, frameworks, onClose }) {
     }
   }
 
+  function handlePrint() {
+    const iframe = document.getElementById('report-preview-frame')
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.focus()
+      iframe.contentWindow.print()
+    } else if (htmlContent) {
+      const printWin = window.open('', '_blank')
+      if (printWin) {
+        printWin.document.open()
+        printWin.document.write(htmlContent)
+        printWin.document.close()
+        printWin.focus()
+        printWin.print()
+      }
+    }
+  }
+
+  const isDocView = viewMode === 'document'
+
   return (
     <div style={M.overlay} onClick={onClose}>
-      <div style={M.box(500)} onClick={e => e.stopPropagation()}>
-        <div style={M.title}>Generate Validation Report</div>
-        <div style={M.subtitle}>{model.display_name}</div>
-
-        <label style={F.label}>Framework</label>
-        <select style={F.select} value={framework} onChange={e => { setFramework(e.target.value); setMemo(null) }}>
-          {applicable.map(fw => <option key={fw} value={fw}>{fw.toUpperCase().replace(/_/g, ' ')}</option>)}
-        </select>
-
-        {memo && (
-          <div style={S.summaryBox}>
-            <div><strong>Coverage:</strong> {memo.regulatory_mapping.present_count} present,{' '}
-              {memo.regulatory_mapping.missing_count} missing{' '}
-              ({memo.regulatory_mapping.coverage_complete ? 'complete' : 'incomplete'})</div>
-            <div><strong>Findings:</strong> {memo.findings_and_recommendations.length}</div>
-            <div style={{ marginTop: 6, color: 'var(--muted)' }}>
-              {memo.findings_and_recommendations.slice(0, 3).map((f, i) => (
-                <div key={i}>• [{f.severity}] {f.description}</div>
-              ))}
-            </div>
+      <div style={M.box(isDocView ? 880 : 540)} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <div style={M.title}>Validation Report & Memorandum</div>
+            <div style={M.subtitle}>{model.display_name} ({model.model_id})</div>
           </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              style={{
+                ...btnSecondary,
+                fontSize: 11,
+                padding: '4px 10px',
+                background: !isDocView ? 'var(--accent)' : 'var(--surface2)',
+                color: !isDocView ? '#ffffff' : 'var(--text)',
+              }}
+              onClick={() => setViewMode('summary')}
+            >
+              Summary
+            </button>
+            <button
+              style={{
+                ...btnSecondary,
+                fontSize: 11,
+                padding: '4px 10px',
+                background: isDocView ? 'var(--accent)' : 'var(--surface2)',
+                color: isDocView ? '#ffffff' : 'var(--text)',
+              }}
+              onClick={() => setViewMode('document')}
+            >
+              Document Preview
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+          <label style={{ ...F.label, marginBottom: 0, minWidth: 70 }}>Framework:</label>
+          <select style={F.select} value={framework} onChange={e => { setFramework(e.target.value); setMemo(null) }}>
+            {applicable.map(fw => <option key={fw} value={fw}>{fw.toUpperCase().replace(/_/g, ' ')}</option>)}
+          </select>
+        </div>
+
+        {isDocView ? (
+          <div style={{ marginTop: 8, marginBottom: 16 }}>
+            {loadingHtml ? (
+              <div style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--muted)', background: 'var(--surface2)', borderRadius: 6 }}>
+                Loading validation memorandum preview...
+              </div>
+            ) : (
+              <iframe
+                id="report-preview-frame"
+                srcDoc={htmlContent}
+                style={{
+                  width: '100%',
+                  height: '540px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  background: '#ffffff',
+                }}
+                title="Validation Report Preview"
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            {memo ? (
+              <div style={S.summaryBox}>
+                <div><strong>Coverage:</strong> {memo.regulatory_mapping.present_count} present,{' '}
+                  {memo.regulatory_mapping.missing_count} missing{' '}
+                  ({memo.regulatory_mapping.coverage_complete ? 'complete' : 'incomplete'})</div>
+                <div><strong>Findings:</strong> {memo.findings_and_recommendations.length}</div>
+                <div style={{ marginTop: 6, color: 'var(--muted)' }}>
+                  {memo.findings_and_recommendations.slice(0, 3).map((f, i) => (
+                    <div key={i}>• [{f.severity}] {f.description}</div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--muted)', fontSize: 13, background: 'var(--surface2)', borderRadius: 6, margin: '12px 0' }}>
+                Select a framework above. Click "Run Validation Check" to inspect regulatory compliance, or switch to "Document Preview" to review the printable memorandum.
+              </div>
+            )}
+          </>
         )}
 
         <div style={M.footer}>
           <button style={btnSecondary} onClick={onClose}>Close</button>
-          <button style={btnSecondary} disabled={busy} onClick={generate}>
-            {busy ? '…' : memo ? 'Regenerate' : 'Preview'}
-          </button>
-          <button style={btnPrimary} disabled={busy} onClick={downloadDocx}>Download .docx</button>
+          {isDocView ? (
+            <button style={btnPrimary} onClick={handlePrint}>Print / Export PDF</button>
+          ) : (
+            <>
+              <button style={btnSecondary} disabled={busy} onClick={() => setViewMode('document')}>
+                Preview Document
+              </button>
+              <button style={btnSecondary} disabled={busy} onClick={generate}>
+                {busy ? '…' : memo ? 'Re-run Check' : 'Run Validation Check'}
+              </button>
+            </>
+          )}
+          <button style={btnSecondary} disabled={busy} onClick={downloadDocx}>Download .docx</button>
         </div>
       </div>
     </div>

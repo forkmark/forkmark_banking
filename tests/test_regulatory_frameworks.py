@@ -1,7 +1,28 @@
 """Unit tests for core.regulatory_frameworks."""
 from __future__ import annotations
 
-import pytest
+from contextlib import contextmanager
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    import pytest
+except ImportError:
+    class _MockPytest:
+        @staticmethod
+        @contextmanager
+        def raises(expected_exc, match=None):
+            try:
+                yield
+            except expected_exc as e:
+                if match and match not in str(e):
+                    raise AssertionError(f"Expected match '{match}', got: {e}")
+            else:
+                raise AssertionError(f"Expected {expected_exc.__name__} was not raised")
+
+    pytest = _MockPytest()
 
 from core.regulatory_frameworks import (
     ArtifactType,
@@ -100,3 +121,21 @@ def test_framework_enum_is_string_valued() -> None:
     assert RegulatoryFramework("eu_ai_act") is RegulatoryFramework.EU_AI_ACT
     with pytest.raises(ValueError):
         RegulatoryFramework("not_a_framework")
+
+
+if __name__ == "__main__":
+    tests = [
+        "test_every_framework_has_complete_requirements",
+        "test_bias_and_human_oversight_flags_match_regimes",
+        "test_required_artifacts_are_valid_and_include_validation_memo",
+        "test_get_all_requirements_matches_framework_order",
+        "test_eu_ai_act_requires_conformity_and_bias_artifacts",
+        "test_cbuae_mms_carries_lifecycle_artifacts",
+        "test_framework_enum_is_string_valued",
+    ]
+    for name in tests:
+        fn = globals().get(name)
+        if fn:
+            fn()
+            print(f"  ✓ {name}")
+    print("All regulatory frameworks tests passed successfully!")

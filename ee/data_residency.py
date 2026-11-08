@@ -34,7 +34,7 @@ import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-logger = logging.getLogger("forkpoint.residency")
+logger = logging.getLogger("forkmark.residency")
 
 
 # ---------------------------------------------------------------------------
@@ -52,27 +52,33 @@ class RegionConfig:
 
 
 REGIONS: Dict[str, RegionConfig] = {
+    "me-central-1": RegionConfig(
+        id="me-central-1",
+        name="Middle East (UAE - Dubai / Abu Dhabi)",
+        database_url_env="FM_DATABASE_URL_ME_CENTRAL",
+        redis_url_env="FM_REDIS_URL_ME_CENTRAL",
+    ),
     "us-east-1": RegionConfig(
         id="us-east-1",
         name="US East (Virginia)",
-        database_url_env="FP_DATABASE_URL_US_EAST",
-        redis_url_env="FP_REDIS_URL_US_EAST",
+        database_url_env="FM_DATABASE_URL_US_EAST",
+        redis_url_env="FM_REDIS_URL_US_EAST",
     ),
     "eu-west-1": RegionConfig(
         id="eu-west-1",
         name="EU West (Ireland)",
-        database_url_env="FP_DATABASE_URL_EU_WEST",
-        redis_url_env="FP_REDIS_URL_EU_WEST",
+        database_url_env="FM_DATABASE_URL_EU_WEST",
+        redis_url_env="FM_REDIS_URL_EU_WEST",
     ),
     "ap-southeast-1": RegionConfig(
         id="ap-southeast-1",
         name="Asia Pacific (Singapore)",
-        database_url_env="FP_DATABASE_URL_AP_SOUTHEAST",
-        redis_url_env="FP_REDIS_URL_AP_SOUTHEAST",
+        database_url_env="FM_DATABASE_URL_AP_SOUTHEAST",
+        redis_url_env="FM_REDIS_URL_AP_SOUTHEAST",
     ),
 }
 
-DEFAULT_REGION = "us-east-1"
+DEFAULT_REGION = os.getenv("FM_DEFAULT_REGION", "me-central-1")
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +187,7 @@ class DataResidencyManager:
                 return url
 
         # Fallback to default
-        return self._default_db_url or os.getenv("FP_DATABASE_URL", "")
+        return self._default_db_url or os.getenv("FM_DATABASE_URL", "") or os.getenv("FP_DATABASE_URL", "")
 
     def get_redis_url(self, org_id: str) -> str:
         """Get the region-specific Redis URL for an org."""
@@ -193,7 +199,7 @@ class DataResidencyManager:
             if url:
                 return url
 
-        return self._default_redis_url or os.getenv("FP_REDIS_URL", "")
+        return self._default_redis_url or os.getenv("FM_REDIS_URL", "") or os.getenv("FP_REDIS_URL", "")
 
     def check_cross_region_access(self, org_id: str, target_workspace_org_id: str) -> bool:
         """Check if cross-region access is attempted (should be denied).

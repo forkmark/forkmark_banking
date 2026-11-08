@@ -42,7 +42,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from core.evaluators import register_evaluator
 from core.models import EvalResult
@@ -70,10 +73,19 @@ _DEFAULT_DISPARITY_THRESHOLD = 1.2
 # the model's quality varies too much across equivalent prompts.
 _DEFAULT_CV_THRESHOLD = 0.15
 
-# Numeric literal: 1,234.56 | 1234.56 | 1234 | .5
-_NUM = r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)"
-# Magnitude suffixes commonly attached to financial figures.
-_MAG = r"(?:thousand|million|billion|trillion|bn|mn|k)"
+# Arabic-Indic to ASCII digit translation table
+_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+# Numeric literal: 1,234.56 | 1234.56 | 1234 | .5 (including Arabic-Indic numerals and separators)
+_NUM = (
+    r"(?:[\d٠-٩]{1,3}(?:[,\u066c][\d٠-٩]{3})+(?:[\.\u066b][\d٠-٩]+)?"
+    r"|[\d٠-٩]+(?:[\.\u066b][\d٠-٩]+)?"
+    r"|[\.\u066b][\d٠-٩]+)"
+)
+# Magnitude suffixes commonly attached to financial figures (English and Arabic).
+# Word magnitudes can have optional whitespace; attached 'm'/'M' is only matched when attached
+# directly without whitespace to avoid misreading bare 'm' (e.g. 'Tenor 5 m' as 5,000,000).
+_MAG_WORD = r"(?:thousand|million|billion|trillion|bn|mn|k|ألف|مليون|مليار|ترليون)"
 _MAG_MULTIPLIERS: dict[str, float] = {
     "trillion": 1e12,
     "billion": 1e9,
@@ -82,18 +94,26 @@ _MAG_MULTIPLIERS: dict[str, float] = {
     "bn": 1e9,
     "mn": 1e6,
     "k": 1e3,
+    "ترليون": 1e12,
+    "مليار": 1e9,
+    "مليون": 1e6,
+    "ألف": 1e3,
+    "m": 1e6,
 }
 
+_CURRENCY_PREFIX = r"(?:AED|SAR|QAR|KWD|BHD|OMR|Dhs|[\$£€]|د\.إ|ر\.س)\s?"
+_CURRENCY_SUFFIX = r"\s?(?:AED|SAR|QAR|KWD|BHD|OMR|Dhs|د\.إ|ر\.س)\b"
+
 # Combined, precedence-ordered token pattern. Alternatives are ordered most- to
-# least-specific so, at any position, "$1.2m" matches as currency (not a bare
-# number) and "12%" matches as a percentage.
+# least-specific so, at any position, "AED 1.2m" or "$1.2m" matches as currency
+# (not a bare number) and "12%" matches as a percentage.
 _TOKEN_RE = re.compile(
-    r"(?P<currency>[$£€]\s?" + _NUM + r"(?:\s?" + _MAG + r"\b)?)"
-    r"|(?P<percentage>" + _NUM + r"\s?%)"
-    r"|(?P<basis_points>" + _NUM + r"\s?(?:bps|bp|basis points)\b)"
-    r"|(?P<ratio>\d+(?:\.\d+)?\s?:\s?\d+(?:\.\d+)?|\d+(?:\.\d+)?x\b)"
-    r"|(?P<magnitude>" + _NUM + r"\s?" + _MAG + r"\b)"
-    r"|(?P<number>\(?-?" + _NUM + r"\)?)",
+    rf"(?P<currency>{_CURRENCY_PREFIX}{_NUM}(?:[mM]\b|\s?{_MAG_WORD}\b)?|{_NUM}{_CURRENCY_SUFFIX})"
+    rf"|(?P<percentage>{_NUM}\s?%)"
+    rf"|(?P<basis_points>{_NUM}\s?(?:bps|bp|basis points)\b)"
+    rf"|(?P<ratio>{_NUM}\s?:\s?{_NUM}|{_NUM}x\b)"
+    rf"|(?P<magnitude>{_NUM}(?:[mM]\b|\s?{_MAG_WORD}\b))"
+    rf"|(?P<number>\(?-?{_NUM}\)?)",
     re.IGNORECASE,
 )
 
@@ -130,12 +150,14 @@ class NumericalFidelityResult:
         flagged_numbers:      Output numbers not reconciled to the source.
         total_output_numbers: Count of numeric tokens found in the output.
         is_faithful:          True iff no numbers were flagged.
+        target_branch:        Branch evaluated ('challenger', 'champion', etc.)
     """
 
     score: float
     flagged_numbers: list[FlaggedNumber]
     total_output_numbers: int
     is_faithful: bool
+    target_branch: str = ""
 
     def to_eval_result(self) -> EvalResult:
         n = len(self.flagged_numbers)
@@ -214,25 +236,31 @@ class ConsistencyResult:
 def _normalise_number(raw: str) -> float:
     """Convert a matched numeric token to a float, handling currency symbols,
     thousands separators, parenthesised negatives, magnitude words, percentages,
-    basis points, and ratios. Returns NaN if the token cannot be parsed."""
+    basis points, and ratios (including Arabic numerals and punctuation).
+    Returns NaN if the token cannot be parsed."""
     s = raw.strip().lower()
     negative = False
     if s.startswith("(") and s.endswith(")"):
         negative = True
         s = s[1:-1].strip()
-    for symbol in ("$", "£", "€"):
-        s = s.replace(symbol, "")
+
+    # Strip currency symbols and abbreviations (including Arabic & GCC currencies)
+    for sym in ("$", "£", "€", "aed", "sar", "qar", "kwd", "bhd", "omr", "dhs", "د.إ", "ر.س"):
+        s = s.replace(sym, "")
     s = s.strip()
     if s.startswith("-"):
         negative = True
         s = s[1:].strip()
 
+    # Convert Arabic-Indic numerals (٠-٩) to ASCII (0-9)
+    s = s.translate(_ARABIC_DIGITS)
+
     # Ratio "a:b" -> a / b.
     if ":" in s:
         left, _, right = s.partition(":")
         try:
-            num = float(left.replace(",", "").strip())
-            den = float(right.replace(",", "").strip() or "1")
+            num = float(left.replace(",", "").replace("\u066c", "").replace("\u066b", ".").strip())
+            den = float(right.replace(",", "").replace("\u066c", "").replace("\u066b", ".").strip() or "1")
         except ValueError:
             return math.nan
         value = num / den if den != 0 else math.inf
@@ -240,7 +268,12 @@ def _normalise_number(raw: str) -> float:
 
     multiplier = 1.0
     for word, mult in _MAG_MULTIPLIERS.items():
-        if s.endswith(word):
+        if word == "m":
+            if s.endswith("m") and not s.endswith(" m"):
+                multiplier = mult
+                s = s[:-1].strip()
+                break
+        elif s.endswith(word):
             multiplier = mult
             s = s[: -len(word)].strip()
             break
@@ -250,7 +283,10 @@ def _normalise_number(raw: str) -> float:
             s = s[: -len(suffix)].strip()
             break
 
-    s = s.replace(",", "").strip()
+    # Strip thousands separators (both Western comma and Arabic comma ٬)
+    s = s.replace(",", "").replace("\u066c", "").strip()
+    # Replace Arabic decimal separator (٫) with standard period (.)
+    s = s.replace("\u066b", ".")
     try:
         value = float(s) * multiplier
     except ValueError:
@@ -293,7 +329,7 @@ class NumericalFidelityEvaluator:
         return False
 
     def evaluate(
-        self, source_document: str, model_output: str
+        self, source_document: str, model_output: str, *, target_branch: str = ""
     ) -> NumericalFidelityResult:
         """Compare numbers in ``model_output`` against ``source_document``.
 
@@ -337,6 +373,7 @@ class NumericalFidelityEvaluator:
             flagged_numbers=flagged,
             total_output_numbers=total,
             is_faithful=not flagged,
+            target_branch=target_branch,
         )
 
 
@@ -395,7 +432,7 @@ class BiasDisparityEvaluator:
         grouped: dict[str, list[float]] = {}
         for group, score in samples:
             grouped.setdefault(group, []).append(score)
-        means = {g: float(np.mean(v)) for g, v in grouped.items()}
+        means = {g: float(np.mean(v)) if np is not None else float(sum(v) / len(v)) for g, v in grouped.items()}
         return self.evaluate(means)
 
 
@@ -425,9 +462,14 @@ class ConsistencyEvaluator:
         """
         if len(scores) < 2:
             raise ValueError("At least two scores are required to assess consistency.")
-        arr = np.asarray(scores, dtype=np.float64)
-        mean = float(arr.mean())
-        std = float(arr.std(ddof=1))
+        if np is not None:
+            arr = np.asarray(scores, dtype=np.float64)
+            mean = float(arr.mean())
+            std = float(arr.std(ddof=1))
+        else:
+            import statistics as _stats
+            mean = float(_stats.mean(scores))
+            std = float(_stats.stdev(scores))
         if mean == 0.0:
             cv = 0.0 if std == 0.0 else math.inf
         else:

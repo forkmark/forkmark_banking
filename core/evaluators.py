@@ -33,7 +33,12 @@ import asyncio
 import json
 import os
 import re
-import regex
+try:
+    import regex
+    _RegexError = regex.error
+except ImportError:
+    regex = None
+    _RegexError = re.error
 from typing import Any, Callable, Dict, List, Optional
 
 from .models import EvalResult
@@ -155,9 +160,14 @@ def _regex_search_with_timeout(pattern: str, text: str, flags: int,
     """Run regex.search with a timeout to prevent ReDoS.
     
     Uses the 3rd-party `regex` module which supports native execution timeouts
-    at the C-extension level, completely preventing hung threads.
+    at the C-extension level to prevent ReDoS catastrophic backtracking.
     """
     truncated = text[:_REGEX_MAX_INPUT]
+    if regex is None:
+        raise RuntimeError(
+            "The 'regex' package is required for ReDoS-protected regular expression matching. "
+            "Install regex: pip install regex"
+        )
     return regex.search(pattern, truncated, flags, timeout=timeout_s)
 
 
@@ -186,13 +196,16 @@ def _eval_regex_match(output: str, config: dict, context: dict) -> EvalResult:
     timeout_s = config.get("timeout_s", 5.0)
     try:
         # Validate the pattern compiles before running it
-        regex.compile(pattern)
+        if regex is not None:
+            regex.compile(pattern)
+        else:
+            re.compile(pattern)
         match = _regex_search_with_timeout(pattern, output, flags, timeout_s)
         match_str = match.group() if match else None
     except TimeoutError as e:
         return EvalResult(name="regex_match", passed=False, score=0.0,
                           detail=str(e))
-    except regex.error as e:
+    except _RegexError as e:
         return EvalResult(name="regex_match", passed=False, score=0.0,
                           detail=f"Invalid regex pattern: {e}")
     except Exception as e:

@@ -1,4 +1,4 @@
-"""flywheel repository methods for the Forkmark data layer."""
+"""Human oversight and decision review repository methods for model risk management."""
 from __future__ import annotations
 
 from core.store_impl.base import *  # noqa: F401,F403
@@ -13,7 +13,7 @@ class FlywheelMixin:
         failure_mode: str = "",
         test_goal: str = "",
     ) -> None:
-        """Enrich a test case with domain/use-case metadata for the generation corpus."""
+        """Enrich a test case with domain/use-case metadata for test suite management."""
         with self._conn() as c:
             c.execute(
                 """UPDATE test_cases
@@ -102,7 +102,7 @@ class FlywheelMixin:
         min_eval_runs: int = 1,
         include_performance: bool = True,
     ):
-        """Export enriched test cases as JSONL for training an automated test-case generator.
+        """Export enriched test cases as JSONL for model validation and test-suite management.
 
         Each line:
           {label, input, domain, industry, use_case_type, failure_mode, test_goal,
@@ -293,7 +293,40 @@ class FlywheelMixin:
         consents = self.list_consents(workflow_id=workflow_id, active_only=True)
         return any(r["consent_type"] == consent_type for r in consents)
 
-    # ── Flywheel 2: preference corpus export ──────────────────────────────────
+    # ── Human oversight decision audit export ─────────────────────────────────
+
+    def export_human_review_audit_jsonl(
+        self,
+        workflow_id: str = None,
+        eval_run_id: str = None,
+        anonymize: bool = False,
+        require_consent: bool = False,
+    ):
+        """Export the human review decision corpus as JSONL for compliance evidence.
+
+        A structured audit trail of reviewer decisions — includes reviewer
+        metadata, confidence, structured rationale, divergence score, and data
+        category — suitable for the Human Review Summary section of a model
+        validation memo and Model Oversight Committee (MOC) supervisory records.
+
+        Each line:
+          {
+            prompt, chosen, rejected,
+            rationale_for_choice, rationale_for_rejection,
+            confidence, tags, data_category, divergence_score,
+            reviewer: {role, expertise_level, domain_expertise},
+            provenance_hash  (record key),
+          }
+
+        anonymize=True: replaces raw prompt text with provenance_hash.
+        require_consent=True: filters by data_consent permissions if configured.
+        """
+        return self._export_decision_audit_generator(
+            workflow_id=workflow_id,
+            eval_run_id=eval_run_id,
+            anonymize=anonymize,
+            require_consent=require_consent,
+        )
 
     def export_preference_corpus_jsonl(
         self,
@@ -302,25 +335,21 @@ class FlywheelMixin:
         anonymize: bool = True,
         require_consent: bool = True,
     ):
-        """Export the human review decision corpus as JSONL for compliance evidence.
+        """Backward-compatible alias for export_human_review_audit_jsonl."""
+        return self._export_decision_audit_generator(
+            workflow_id=workflow_id,
+            eval_run_id=eval_run_id,
+            anonymize=anonymize,
+            require_consent=require_consent,
+        )
 
-        A structured audit trail of reviewer decisions — includes reviewer
-        metadata, confidence, structured rationale, divergence score, and data
-        category — suitable for the Human Review Summary section of a model
-        validation memo.
-
-        Each line:
-          {
-            prompt, chosen, rejected,
-            rationale_for_choice, rationale_for_rejection,
-            confidence, tags, data_category, divergence_score,
-            reviewer: {role, expertise_level, domain_expertise},
-            provenance_hash  (anonymized cross-record key),
-          }
-
-        anonymize=True: replaces raw prompt text with provenance_hash.
-        require_consent=True: skips workflows without an active data_consent record.
-        """
+    def _export_decision_audit_generator(
+        self,
+        workflow_id: str = None,
+        eval_run_id: str = None,
+        anonymize: bool = False,
+        require_consent: bool = False,
+    ):
         import hashlib
 
         filters = ["d.choice IN ('A', 'B')"]

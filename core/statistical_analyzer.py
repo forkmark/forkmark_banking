@@ -46,12 +46,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Union
 
-import numpy as np
-import numpy.typing as npt
-from scipy import stats  # type: ignore[import-untyped]
+try:
+    import numpy as np
+    import numpy.typing as npt
+    FloatVector = Union[Sequence[float], npt.NDArray[np.float64]]
+except ImportError:
+    np = None  # type: ignore
+    FloatVector = Sequence[float]  # type: ignore
 
-# A vector of floats, accepting either a plain sequence or a NumPy float array.
-FloatVector = Union[Sequence[float], npt.NDArray[np.float64]]
+try:
+    from scipy import stats  # type: ignore[import-untyped]
+except ImportError:
+    stats = None  # type: ignore
 
 __all__ = [
     "StatisticalResult",
@@ -198,6 +204,34 @@ def _effect_magnitude(d: float) -> str:
     return "large"
 
 
+def _norm_ppf(p: float) -> float:
+    """Standard normal quantile function (inverse CDF) without scipy."""
+    if stats is not None:
+        return float(stats.norm.ppf(p))
+    if p <= 0.0 or p >= 1.0:
+        if p == 0.0:
+            return -math.inf
+        if p == 1.0:
+            return math.inf
+        raise ValueError("p must be in (0, 1)")
+    a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00]
+    b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01]
+    c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00]
+    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00]
+    p_low = 0.02425
+    p_high = 1.0 - p_low
+    if p < p_low:
+        q = math.sqrt(-2.0 * math.log(p))
+        return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1.0)
+    elif p <= p_high:
+        q = p - 0.5
+        r = q * q
+        return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1.0)
+    else:
+        q = math.sqrt(-2.0 * math.log(1.0 - p))
+        return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1.0)
+
+
 def _validate_pair(
     a: FloatVector, b: FloatVector
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
@@ -214,6 +248,8 @@ def _validate_pair(
         )
     if len(a) < 2:
         raise ValueError("At least two paired samples are required.")
+    if np is None:
+        raise RuntimeError("numpy is required for statistical analysis. Install numpy: pip install numpy")
     arr_a = np.asarray(a, dtype=np.float64)
     arr_b = np.asarray(b, dtype=np.float64)
     return arr_a, arr_b
@@ -252,7 +288,7 @@ def wilson_score_interval(
         raise ValueError("successes must be within [0, n].")
 
     p_hat = successes / n
-    z = float(stats.norm.ppf(1.0 - (1.0 - confidence_level) / 2.0))
+    z = _norm_ppf(1.0 - (1.0 - confidence_level) / 2.0)
     z2 = z * z
     denom = 1.0 + z2 / n
     center = (p_hat + z2 / (2.0 * n)) / denom
@@ -272,13 +308,22 @@ def welch_t_test(a: FloatVector, b: FloatVector) -> tuple[float, float]:
         p=0.0 otherwise, so degenerate inputs never yield NaN.
     """
     arr_a, arr_b = _validate_pair(a, b)
-    if arr_a.var(ddof=1) == 0.0 and arr_b.var(ddof=1) == 0.0:
-        means_equal = bool(np.isclose(arr_a.mean(), arr_b.mean()))
+    m_a, m_b = arr_a.mean(), arr_b.mean()
+    v_a, v_b = arr_a.var(ddof=1), arr_b.var(ddof=1)
+    if v_a == 0.0 and v_b == 0.0:
+        means_equal = abs(m_a - m_b) < 1e-9
         return (0.0, 1.0) if means_equal else (math.inf, 0.0)
 
+    if stats is None or np is None:
+        raise RuntimeError(
+            "scipy.stats and numpy are required to compute Welch's t-test p-values. "
+            "Normal approximations are not permitted under institutional model validation standards. "
+            "Install dependencies: pip install numpy scipy"
+        )
     result = stats.ttest_ind(arr_a, arr_b, equal_var=False)
     t_stat = float(result.statistic)
     p_value = float(result.pvalue)
+
     if math.isnan(p_value):  # pragma: no cover - guarded by the zero-var branch
         p_value = 1.0
     return t_stat, p_value
@@ -321,11 +366,21 @@ def paired_t_test(a: FloatVector, b: FloatVector) -> tuple[float, float]:
     """
     arr_a, arr_b = _validate_pair(a, b)
     diff = arr_a - arr_b
-    if diff.var(ddof=1) == 0.0:
-        return (0.0, 1.0) if bool(np.isclose(diff.mean(), 0.0)) else (math.inf, 0.0)
+    diff_mean = float(diff.mean())
+    diff_var = float(diff.var(ddof=1))
+    if diff_var == 0.0:
+        return (0.0, 1.0) if abs(diff_mean) < 1e-9 else (math.inf, 0.0)
+
+    if stats is None or np is None:
+        raise RuntimeError(
+            "scipy.stats and numpy are required to compute paired Student's t-test p-values. "
+            "Normal approximations are not permitted under institutional model validation standards. "
+            "Install dependencies: pip install numpy scipy"
+        )
     result = stats.ttest_rel(arr_a, arr_b)
     t_stat = float(result.statistic)
     p_value = float(result.pvalue)
+
     if math.isnan(p_value):  # pragma: no cover - guarded by the zero-var branch
         p_value = 1.0
     return t_stat, p_value
@@ -370,6 +425,8 @@ def benjamini_hochberg(p_values: Sequence[float]) -> list[float]:
     m = len(p_values)
     if m == 0:
         raise ValueError("p_values must be non-empty.")
+    if np is None:
+        raise RuntimeError("numpy is required for Benjamini-Hochberg FDR ranking. Install numpy: pip install numpy")
     raw = np.asarray(p_values, dtype=np.float64)
     order = np.argsort(raw)
     ranked = raw[order]
@@ -415,6 +472,8 @@ def minimum_detectable_effect(
     """
     if n_per_group <= 0:
         raise ValueError("n_per_group must be positive.")
+    if stats is None:
+        raise RuntimeError("scipy.stats is required for statistical power analysis. Install scipy: pip install scipy")
     z_alpha = float(stats.norm.ppf(1.0 - alpha / 2.0))
     z_power = float(stats.norm.ppf(power))
     factor = 1.0 if paired else 2.0
@@ -450,6 +509,8 @@ def power_analysis(
         raise ValueError("power must be in (0, 1).")
     if not 0.0 < alpha < 1.0:
         raise ValueError("alpha must be in (0, 1).")
+    if stats is None:
+        raise RuntimeError("scipy.stats is required for statistical power analysis. Install scipy: pip install scipy")
     d = abs(effect_size)
     z_alpha = float(stats.norm.ppf(1.0 - alpha / 2.0))
     z_power = float(stats.norm.ppf(power))
@@ -458,12 +519,17 @@ def power_analysis(
 
 
 def _win_rate_successes(
-    arr_a: npt.NDArray[np.float64],
-    arr_b: npt.NDArray[np.float64],
+    arr_a: Any,
+    arr_b: Any,
 ) -> float:
     """Count Branch A wins, splitting ties as one half (standard win-rate rule)."""
-    wins = float(np.sum(arr_a > arr_b))
-    ties = float(np.sum(arr_a == arr_b))
+    wins = 0.0
+    ties = 0.0
+    for x, y in zip(arr_a, arr_b):
+        if x > y:
+            wins += 1.0
+        elif abs(x - y) < 1e-9:
+            ties += 1.0
     return wins + 0.5 * ties
 
 

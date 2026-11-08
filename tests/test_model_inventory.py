@@ -3,8 +3,32 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sys
 
-import pytest
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from contextlib import contextmanager
+
+try:
+    import pytest
+except ImportError:
+    class _MockPytest:
+        @staticmethod
+        def fixture():
+            def decorator(fn): return fn
+            return decorator
+
+        @staticmethod
+        @contextmanager
+        def raises(expected_exc, match=None):
+            try:
+                yield
+            except expected_exc as e:
+                if match and match not in str(e):
+                    raise AssertionError(f"Expected match '{match}', got: {e}")
+            else:
+                raise AssertionError(f"Expected {expected_exc.__name__} was not raised")
+    pytest = _MockPytest()
 
 from core.model_inventory import (
     ModelInventory,
@@ -155,3 +179,31 @@ def test_record_to_dict_is_json_friendly(inventory: ModelInventory) -> None:
     assert d["regulatory_frameworks"] == ["eu_ai_act"]
     assert d["status"] == "ACTIVE"
     assert d["deployed_at"].startswith("2025-01-01")
+
+
+if __name__ == "__main__":
+    import tempfile, shutil
+    td = Path(tempfile.mkdtemp())
+    try:
+        inv = ModelInventory(Database(str(td / "inv.db")))
+        tests = [
+            "test_crud_roundtrip",
+            "test_add_duplicate_raises",
+            "test_update_validation_dates_are_derived",
+            "test_update_rejects_unknown_field_and_missing_model",
+            "test_get_due_for_revalidation",
+            "test_compliance_coverage_report",
+            "test_record_to_dict_is_json_friendly",
+        ]
+        for name in tests:
+            fn = globals().get(name)
+            if fn:
+                # Fresh inventory for isolation
+                td_sub = Path(tempfile.mkdtemp())
+                sub_inv = ModelInventory(Database(str(td_sub / "test.db")))
+                fn(sub_inv)
+                print(f"  ✓ {name}")
+                shutil.rmtree(td_sub, ignore_errors=True)
+        print("All 7 model inventory tests passed successfully!")
+    finally:
+        shutil.rmtree(td, ignore_errors=True)

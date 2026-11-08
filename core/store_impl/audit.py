@@ -12,10 +12,13 @@ from __future__ import annotations
 import json as _json
 
 from core.store_impl.base import *  # noqa: F401,F403
-from core.store_impl.base import _AUDIT_GENESIS_HASH, _audit_entry_hash
+from core.store_impl.base import _AUDIT_GENESIS_HASH, _audit_entry_hash, _is_pg
 
 
 class AuditMixin:
+    # Stable 64-bit application key for PostgreSQL transaction advisory locking ("FM_AUDIT")
+    _AUDIT_LOCK_ID = 5065814041724213588
+
     def add_audit_log(
         self,
         action: str,
@@ -26,21 +29,32 @@ class AuditMixin:
         resource_id: str = "",
         detail: "Optional[dict]" = None,
         ip: str = "",
+        conn: "Any" = None,
     ) -> str:
         """Append one immutable audit entry. Returns the new entry id.
 
-        Best-effort by contract at the call site: auditing must never break the
-        primary operation, so callers should wrap this in a try/except and log
-        failures rather than propagate them.
+        When ``conn`` is provided, the entry is written inside the caller's
+        existing database transaction, guaranteeing atomic commit or rollback.
+        When ``conn`` is None, a new write transaction is opened with contention
+        retries.
 
         Each entry is chained to the previous one with a SHA-256 (``prev_hash`` +
         ``entry_hash``, ordered by ``seq``), making the append-only log
         tamper-evident — see :meth:`verify_audit_chain`.
+
+        Concurrency safety:
+          - On PostgreSQL: serialized via pg_advisory_xact_lock to prevent
+            concurrent race conditions on seq generation and duplicate key errors.
+          - On SQLite: serialized via Store write lock.
         """
         entry_id = str(uuid.uuid4())
         ts = datetime.now(timezone.utc).isoformat()
         detail = detail or {}
-        with self._conn() as c:
+
+        def _insert(c) -> str:
+            if _is_pg(c):
+                c.execute("SELECT pg_advisory_xact_lock(?)", (self._AUDIT_LOCK_ID,))
+
             head = c.fetchone(
                 "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1"
             )
@@ -76,6 +90,22 @@ class AuditMixin:
                     entry_hash,
                 ),
             )
+            return entry_id
+
+        if conn is not None:
+            return _insert(conn)
+
+        # Retries handle any transient contention when creating own transaction
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                with self._conn() as c:
+                    return _insert(c)
+            except Exception as exc:
+                if attempt < max_attempts - 1:
+                    time.sleep(0.02 * (2 ** attempt))
+                    continue
+                raise exc
         return entry_id
 
     def list_audit_log(

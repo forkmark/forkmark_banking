@@ -35,7 +35,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-logger = logging.getLogger("forkpoint.scim")
+logger = logging.getLogger("forkmark.scim")
 
 scim_router = APIRouter(tags=["scim"])
 

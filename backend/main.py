@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import config
@@ -260,6 +260,34 @@ class _V1RewriteMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 app.add_middleware(_V1RewriteMiddleware)
+
+
+class _DataResidencyMiddleware(BaseHTTPMiddleware):
+    """Enforce and surface UAE sovereign data residency controls on all API endpoints."""
+    async def dispatch(self, request: Request, call_next):
+        from ee.data_residency import REGIONS, DEFAULT_REGION
+        req_region = request.headers.get("X-Region")
+        if req_region:
+            if req_region not in REGIONS:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "detail": f"Unsupported data residency region: '{req_region}'. Valid regions: {list(REGIONS.keys())}"
+                    },
+                )
+            # Enforce on-soil boundary: reject cross-region routing when configured for sovereign residency
+            if req_region != DEFAULT_REGION:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": f"Data residency violation: requested region '{req_region}' conflicts with sovereign on-soil deployment boundary ({DEFAULT_REGION}). Cross-border routing is prohibited under CBUAE regulations."
+                    },
+                )
+        response = await call_next(request)
+        response.headers["X-Data-Residency-Region"] = DEFAULT_REGION
+        return response
+
+app.add_middleware(_DataResidencyMiddleware)
 
 
 # ── Serve React SPA ──────────────────────────────────────────────────────────

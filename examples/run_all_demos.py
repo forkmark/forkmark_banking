@@ -25,11 +25,59 @@ import sys
 try:
     import httpx
 except ImportError:
-    print("[error] httpx is required: pip install httpx")
-    sys.exit(1)
+    httpx = None
+import urllib.request
+import urllib.error
+import json
 
 BASE_URL = os.getenv("FM_URL", "http://localhost:7700")
 API_KEY = os.getenv("FORKMARK_API_KEY", os.getenv("FM_BOOTSTRAP_TOKEN", ""))
+
+
+class _UrllibClient:
+    """Lightweight urllib-backed client matching httpx.Client interface for demos."""
+    def __init__(self, timeout=120):
+        self.timeout = timeout
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def _req(self, method, url, json_body=None, headers=None):
+        hdrs = dict(headers or {})
+        hdrs["Content-Type"] = "application/json"
+        body_bytes = json.dumps(json_body).encode("utf-8") if json_body is not None else None
+        req = urllib.request.Request(url, data=body_bytes, headers=hdrs, method=method.upper())
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                raw = resp.read().decode("utf-8")
+                data = json.loads(raw) if raw else {}
+                class _Resp:
+                    def raise_for_status(self): pass
+                    def json(self): return data
+                return _Resp()
+        except urllib.error.HTTPError as he:
+            err_raw = he.read().decode("utf-8") if he.fp else ""
+            try:
+                err_data = json.loads(err_raw)
+            except Exception:
+                err_data = {"detail": err_raw}
+            class _ErrResp:
+                def raise_for_status(self):
+                    raise RuntimeError(f"HTTP {he.code}: {err_data}")
+                def json(self): return err_data
+            return _ErrResp()
+
+    def get(self, url, headers=None):
+        return self._req("GET", url, headers=headers)
+
+    def post(self, url, json=None, headers=None):
+        return self._req("POST", url, json_body=json, headers=headers)
+
+    def request(self, method, url, json=None, headers=None):
+        return self._req(method, url, json_body=json, headers=headers)
 
 
 def _headers():
@@ -49,7 +97,8 @@ def main():
     ap.add_argument("--list", action="store_true", help="List available demos and exit.")
     args = ap.parse_args()
 
-    with httpx.Client(timeout=120) as client:
+    client_ctx = httpx.Client(timeout=120) if httpx is not None else _UrllibClient(timeout=120)
+    with client_ctx as client:
         demos = list_demos(client)
         names = [d["name"] for d in demos]
 

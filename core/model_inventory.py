@@ -82,13 +82,17 @@ def _as_dict(row: Any) -> dict[str, Any]:
     return dict(row)
 
 
-def _iso(value: Optional[datetime]) -> Optional[str]:
-    return value.isoformat() if value is not None else None
+def _iso(value: Optional[datetime | str]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
-def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+def _parse_dt(value: Optional[str | datetime]) -> Optional[datetime]:
     if not value:
         return None
+    if isinstance(value, datetime):
+        return value
     return datetime.fromisoformat(value)
 
 
@@ -235,11 +239,21 @@ class ModelInventory:
 
     # ── Create ────────────────────────────────────────────────────────────────
 
-    def add_model(self, record: ModelRecord) -> ModelRecord:
+    def add_model(
+        self,
+        record: ModelRecord,
+        *,
+        audit_actor: Optional[str] = None,
+        audit_role: str = "",
+        ip: str = "",
+    ) -> ModelRecord:
         """Insert a new model record.
 
         Auto-derives ``next_validation_due`` when a model has been validated but no
         due date was supplied.
+
+        When ``audit_actor`` is provided, the audit log entry is written inside
+        the exact same database transaction, ensuring atomicity.
 
         Raises:
             ValueError: If a model with the same ``model_id`` already exists.
@@ -279,6 +293,20 @@ class ModelInventory:
                         now,
                     ),
                 )
+                if audit_actor is not None:
+                    self._db.add_audit_log(
+                        "model.create",
+                        actor=audit_actor or "system",
+                        actor_role=audit_role,
+                        resource_type="model",
+                        resource_id=record.model_id,
+                        detail={
+                            "risk_tier": record.risk_tier.value,
+                            "frameworks": [f.value for f in record.regulatory_frameworks],
+                        },
+                        ip=ip,
+                        conn=c,
+                    )
         except Exception as exc:  # narrow: only the duplicate-key case is expected
             if self.get_model(record.model_id) is not None:
                 raise ValueError(
@@ -317,8 +345,19 @@ class ModelInventory:
 
     # ── Update ────────────────────────────────────────────────────────────────
 
-    def update_model(self, model_id: str, **changes: Any) -> ModelRecord:
+    def update_model(
+        self,
+        model_id: str,
+        *,
+        audit_actor: Optional[str] = None,
+        audit_role: str = "",
+        ip: str = "",
+        **changes: Any,
+    ) -> ModelRecord:
         """Patch a model record with the supplied field changes.
+
+        When ``audit_actor`` is provided, the audit log entry is written inside
+        the exact same database transaction, ensuring atomicity.
 
         Recomputes ``next_validation_due`` when ``last_validated_at`` changes and no
         explicit due date is supplied in the same call.
@@ -371,19 +410,52 @@ class ModelInventory:
                     model_id,
                 ),
             )
+            if audit_actor is not None:
+                self._db.add_audit_log(
+                    "model.update",
+                    actor=audit_actor or "system",
+                    actor_role=audit_role,
+                    resource_type="model",
+                    resource_id=model_id,
+                    detail={"fields": sorted(changes.keys())},
+                    ip=ip,
+                    conn=c,
+                )
         logger.info("model inventory: updated %s", model_id)
         return record
 
     # ── Delete ────────────────────────────────────────────────────────────────
 
-    def delete_model(self, model_id: str) -> bool:
-        """Delete a model record. Returns ``True`` if a row was removed."""
-        existed = self.get_model(model_id) is not None
+    def delete_model(
+        self,
+        model_id: str,
+        *,
+        audit_actor: Optional[str] = None,
+        audit_role: str = "",
+        ip: str = "",
+    ) -> bool:
+        """Delete a model record. Returns ``True`` if a row was removed.
+
+        When ``audit_actor`` is provided, the audit log entry is written inside
+        the exact same database transaction, ensuring atomicity.
+        """
         with self._db._conn() as c:
+            row = c.fetchone("SELECT model_id FROM model_inventory WHERE model_id = ?", (model_id,))
+            if row is None:
+                return False
             c.execute("DELETE FROM model_inventory WHERE model_id = ?", (model_id,))
-        if existed:
-            logger.info("model inventory: deleted %s", model_id)
-        return existed
+            if audit_actor is not None:
+                self._db.add_audit_log(
+                    "model.delete",
+                    actor=audit_actor or "system",
+                    actor_role=audit_role,
+                    resource_type="model",
+                    resource_id=model_id,
+                    ip=ip,
+                    conn=c,
+                )
+        logger.info("model inventory: deleted %s", model_id)
+        return True
 
     # ── Governance queries ──────────────────────────────────────────────────────
 

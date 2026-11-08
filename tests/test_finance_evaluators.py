@@ -1,9 +1,43 @@
 """Unit tests for core.finance_evaluators."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from pathlib import Path
 import math
+import sys
 
-import pytest
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    import pytest
+except ImportError:
+    class _MockPytest:
+        @staticmethod
+        def approx(val, rel=1e-6):
+            class _Approx:
+                def __init__(self, target, rel):
+                    self.target = target
+                    self.rel = rel
+                def __eq__(self, other):
+                    if math.isnan(self.target) and math.isnan(other):
+                        return True
+                    return abs(other - self.target) <= max(self.rel * max(abs(self.target), abs(other)), 1e-9)
+                def __repr__(self):
+                    return f"approx({self.target})"
+            return _Approx(val, rel)
+
+        @staticmethod
+        @contextmanager
+        def raises(expected_exc, match=None):
+            try:
+                yield
+            except expected_exc as e:
+                if match and match not in str(e):
+                    raise AssertionError(f"Expected match '{match}', got: {e}")
+            else:
+                raise AssertionError(f"Expected {expected_exc.__name__} was not raised")
+
+    pytest = _MockPytest()
 
 from core.finance_evaluators import (
     BiasDisparityEvaluator,
@@ -129,3 +163,23 @@ def test_numerical_fidelity_registered_in_pipeline() -> None:
         asyncio.set_event_loop(asyncio.new_event_loop())
     assert results[0].name == "numerical_fidelity"
     assert results[0].passed is False
+
+
+if __name__ == "__main__":
+    tests = [
+        "test_number_extraction_handles_financial_notation",
+        "test_numerical_fidelity_passes_when_figures_reconcile",
+        "test_numerical_fidelity_flags_hallucinated_figure",
+        "test_numerical_fidelity_tolerance_allows_rounding",
+        "test_bias_disparity_detects_and_passes",
+        "test_bias_disparity_from_samples_aggregates_means",
+        "test_consistency_flags_high_variability",
+        "test_consistency_handles_zero_mean",
+        "test_numerical_fidelity_registered_in_pipeline",
+    ]
+    for name in tests:
+        fn = globals().get(name)
+        if fn:
+            fn()
+            print(f"  ✓ {name}")
+    print("All finance evaluator tests passed successfully!")

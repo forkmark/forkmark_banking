@@ -38,6 +38,9 @@ services:
       # Optional — enables model comparison / LLM-judge scoring.
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       FM_OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      # Regional GCC sovereign default and Fernet secret key
+      FM_DEFAULT_REGION: "${FM_DEFAULT_REGION:-me-central-1}"
+      FM_SECRET_KEY: "${FM_SECRET_KEY:-}"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7700/api/health"]
       interval: 10s
