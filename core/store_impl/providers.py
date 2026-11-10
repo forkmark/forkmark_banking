@@ -7,11 +7,34 @@ from core.store_impl.base import *  # noqa: F401,F403
 class ProvidersMixin:
     def create_provider(self, name: str, provider_type: str = "openai",
                         base_url: str = "", api_key: str = "",
-                        is_default: bool = False) -> dict:
+                        is_default: bool = False,
+                        deployment_kind: str = None,
+                        model_family: str = "",
+                        default_model: str = "",
+                        azure_deployment: str = "",
+                        api_version: str = "",
+                        azure_deployment_type: str = "",
+                        inference_region: str = "",
+                        hosting: str = "bank_self_hosted",
+                        vendor_name: str = "",
+                        licence: str = "",
+                        max_concurrency: int = 4,
+                        timeout_s: float = 60.0,
+                        rpm_limit: int = 120,
+                        rpd_limit: int = 100000,
+                        max_input_tokens: int = 4096) -> dict:
         """Create an LLM provider entry. API key is encrypted at rest."""
         now = datetime.now(timezone.utc).isoformat()
         pid = str(uuid.uuid4())
         encrypted = _encrypt_setting(api_key) if api_key else ""
+        if not deployment_kind:
+            if provider_type == "azure_openai":
+                deployment_kind = "azure_openai"
+            elif provider_type == "anthropic":
+                deployment_kind = "anthropic"
+            else:
+                deployment_kind = "openai_compatible"
+
         with self._conn() as c:
             # If this is the first provider or is_default, clear other defaults
             if is_default:
@@ -23,11 +46,19 @@ class ProvidersMixin:
                 is_default = True
             c.execute("""INSERT INTO llm_providers
                 (id, name, provider_type, base_url, api_key_encrypted,
-                 is_default, created_at, updated_at)
-                VALUES (?,?,?,?,?,?,?,?)""",
+                 is_default, created_at, updated_at,
+                 deployment_kind, model_family, default_model,
+                 azure_deployment, api_version, azure_deployment_type,
+                 inference_region, hosting, vendor_name, licence,
+                 max_concurrency, timeout_s, rpm_limit, rpd_limit, max_input_tokens)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (pid, name, provider_type, base_url, encrypted,
-                 int(is_default), now, now))
-        return {
+                 int(is_default), now, now,
+                 deployment_kind, model_family or "", default_model or "",
+                 azure_deployment or "", api_version or "", azure_deployment_type or "",
+                 inference_region or "", hosting or "bank_self_hosted", vendor_name or "", licence or "",
+                 max_concurrency or 4, timeout_s or 60.0, rpm_limit or 120, rpd_limit or 100000, max_input_tokens or 4096))
+        return self.get_provider(pid) or {
             "id": pid, "name": name, "provider_type": provider_type,
             "base_url": base_url, "is_default": bool(is_default),
             "created_at": now, "updated_at": now,
@@ -37,9 +68,7 @@ class ProvidersMixin:
         """List all providers. API keys are NOT returned."""
         with self._read_conn() as c:
             rows = c.fetchall(
-                "SELECT id, name, provider_type, base_url, api_key_encrypted, "
-                "is_default, created_at, updated_at "
-                "FROM llm_providers ORDER BY is_default DESC, created_at ASC")
+                "SELECT * FROM llm_providers ORDER BY is_default DESC, created_at ASC")
         result = []
         for r in rows:
             rd = _row(r)
@@ -63,9 +92,7 @@ class ProvidersMixin:
         """Get a single provider (without raw key)."""
         with self._read_conn() as c:
             r = c.fetchone(
-                "SELECT id, name, provider_type, base_url, api_key_encrypted, "
-                "is_default, created_at, updated_at "
-                "FROM llm_providers WHERE id=?", (provider_id,))
+                "SELECT * FROM llm_providers WHERE id=?", (provider_id,))
         if not r:
             return None
         rd = _row(r)
@@ -84,23 +111,19 @@ class ProvidersMixin:
         return rd
 
     def get_provider_credentials(self, provider_id: str) -> Optional[dict]:
-        """Get provider credentials (decrypted key + base_url) for LLM calls.
+        """Get provider credentials (decrypted key + base_url + connector settings).
         Internal use only — never expose via API.
         """
         with self._read_conn() as c:
             r = c.fetchone(
-                "SELECT base_url, api_key_encrypted, provider_type "
-                "FROM llm_providers WHERE id=?", (provider_id,))
+                "SELECT * FROM llm_providers WHERE id=?", (provider_id,))
         if not r:
             return None
         rd = _row(r)
         encrypted = rd.get("api_key_encrypted", "")
         api_key = _decrypt_setting(encrypted) if encrypted else ""
-        return {
-            "api_key": api_key,
-            "base_url": rd.get("base_url", ""),
-            "provider_type": rd.get("provider_type", "openai"),
-        }
+        rd["api_key"] = api_key
+        return rd
 
     def get_default_provider_credentials(self) -> Optional[dict]:
         """Get the default provider's credentials. Falls back to legacy settings."""
@@ -125,7 +148,22 @@ class ProvidersMixin:
     def update_provider(self, provider_id: str, *,
                         name: str = None, provider_type: str = None,
                         base_url: str = None, api_key: str = None,
-                        is_default: bool = None) -> Optional[dict]:
+                        is_default: bool = None,
+                        deployment_kind: str = None,
+                        model_family: str = None,
+                        default_model: str = None,
+                        azure_deployment: str = None,
+                        api_version: str = None,
+                        azure_deployment_type: str = None,
+                        inference_region: str = None,
+                        hosting: str = None,
+                        vendor_name: str = None,
+                        licence: str = None,
+                        max_concurrency: int = None,
+                        timeout_s: float = None,
+                        rpm_limit: int = None,
+                        rpd_limit: int = None,
+                        max_input_tokens: int = None) -> Optional[dict]:
         """Update a provider. Pass api_key="" to keep the existing key."""
         now = datetime.now(timezone.utc).isoformat()
         with self._conn() as c:
@@ -145,13 +183,65 @@ class ProvidersMixin:
             if is_default is True:
                 c.execute("UPDATE llm_providers SET is_default=0")
                 rd["is_default"] = 1
+            if deployment_kind is not None:
+                rd["deployment_kind"] = deployment_kind
+            if model_family is not None:
+                rd["model_family"] = model_family
+            if default_model is not None:
+                rd["default_model"] = default_model
+            if azure_deployment is not None:
+                rd["azure_deployment"] = azure_deployment
+            if api_version is not None:
+                rd["api_version"] = api_version
+            if azure_deployment_type is not None:
+                rd["azure_deployment_type"] = azure_deployment_type
+            if inference_region is not None:
+                rd["inference_region"] = inference_region
+            if hosting is not None:
+                rd["hosting"] = hosting
+            if vendor_name is not None:
+                rd["vendor_name"] = vendor_name
+            if licence is not None:
+                rd["licence"] = licence
+            if max_concurrency is not None:
+                rd["max_concurrency"] = max_concurrency
+            if timeout_s is not None:
+                rd["timeout_s"] = timeout_s
+            if rpm_limit is not None:
+                rd["rpm_limit"] = rpm_limit
+            if rpd_limit is not None:
+                rd["rpd_limit"] = rpd_limit
+            if max_input_tokens is not None:
+                rd["max_input_tokens"] = max_input_tokens
+
             rd["updated_at"] = now
             c.execute("""UPDATE llm_providers
                 SET name=?, provider_type=?, base_url=?, api_key_encrypted=?,
-                    is_default=?, updated_at=?
+                    is_default=?, updated_at=?,
+                    deployment_kind=?, model_family=?, default_model=?,
+                    azure_deployment=?, api_version=?, azure_deployment_type=?,
+                    inference_region=?, hosting=?, vendor_name=?, licence=?,
+                    max_concurrency=?, timeout_s=?, rpm_limit=?, rpd_limit=?, max_input_tokens=?
                 WHERE id=?""",
                 (rd["name"], rd["provider_type"], rd["base_url"],
-                 rd["api_key_encrypted"], rd["is_default"], now, provider_id))
+                 rd["api_key_encrypted"], rd["is_default"], now,
+                 rd.get("deployment_kind", "openai_compatible"),
+                 rd.get("model_family", ""),
+                 rd.get("default_model", ""),
+                 rd.get("azure_deployment", ""),
+                 rd.get("api_version", ""),
+                 rd.get("azure_deployment_type", ""),
+                 rd.get("inference_region", ""),
+                 rd.get("hosting", "bank_self_hosted"),
+                 rd.get("vendor_name", ""),
+                 rd.get("licence", ""),
+                 rd.get("max_concurrency", 4),
+                 rd.get("timeout_s", 60.0),
+                 rd.get("rpm_limit", 120),
+                 rd.get("rpd_limit", 100000),
+                 rd.get("max_input_tokens", 4096),
+                 provider_id))
+        return self.get_provider(provider_id)
         return self.get_provider(provider_id)
 
     def delete_provider(self, provider_id: str) -> bool:

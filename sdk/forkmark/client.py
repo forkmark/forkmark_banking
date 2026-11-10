@@ -1,7 +1,7 @@
 """Forkmark HTTP client with retry and exponential backoff."""
 from __future__ import annotations
 import time
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Sequence
 import httpx
 
 from .workflow import WorkflowContext
@@ -256,3 +256,79 @@ class ForkmarkClient:
             input_data=input_data,
             metadata=metadata,
         )
+
+    # ── Validation & Continuous Monitoring ───────────────────────────────────
+
+    def run_validation(
+        self,
+        model_id: str,
+        test_set_id: str,
+        champion: dict,
+        challenger: Optional[dict] = None,
+        suites: Sequence[str] = ("ab",),
+        wait: bool = True,
+        timeout_s: float = 1800.0,
+    ) -> List[str]:
+        """Trigger one or more validation suites against live model connections."""
+        body = {
+            "test_set_id": test_set_id,
+            "champion": champion,
+            "challenger": challenger,
+            "suites": list(suites),
+        }
+        res = self._post(f"/api/inventory/models/{model_id}/validation-runs", body)
+        eval_run_ids = res.get("eval_run_ids", [])
+        if not wait or not eval_run_ids:
+            return eval_run_ids
+
+        start = time.time()
+        poll_interval = 1.0
+        for er_id in eval_run_ids:
+            while time.time() - start < timeout_s:
+                run_info = self._get(f"/api/eval-runs/{er_id}")
+                status = run_info.get("status")
+                if status in ("completed", "failed", "cancelled"):
+                    break
+                time.sleep(poll_interval)
+                poll_interval = min(poll_interval * 1.5, 10.0)
+            else:
+                raise TimeoutError(f"Validation run {er_id} timed out after {timeout_s}s")
+        return eval_run_ids
+
+    def create_monitor(
+        self,
+        model_id: str,
+        test_set_id: str,
+        connector_id: str,
+        interval_hours: Optional[int] = None,
+        include_safety_slice: bool = True,
+        thresholds: Optional[dict] = None,
+    ) -> dict:
+        """Create a continuous drift monitor for a governed model."""
+        body = {
+            "test_set_id": test_set_id,
+            "connector_id": connector_id,
+            "interval_hours": interval_hours,
+            "include_safety_slice": include_safety_slice,
+            "thresholds": thresholds,
+        }
+        return self._post(f"/api/inventory/models/{model_id}/monitors", body)
+
+    def monitor_runs(self, monitor_id: str, limit: int = 20) -> list[dict]:
+        """Fetch historical runs, drift metrics, and breach reports for a monitor."""
+        return self._get(f"/api/monitors/{monitor_id}/runs", params={"limit": limit})
+
+    def run_monitor_now(self, monitor_id: str) -> dict:
+        """Trigger a monitor execution immediately outside of scheduled intervals."""
+        return self._post(f"/api/monitors/{monitor_id}/run", {})
+
+    def resolve_monitor_run(self, monitor_id: str, run_id: str, rationale: str) -> dict:
+        """Record supervisory resolution for an alert on a monitor run."""
+        return self._post(f"/api/monitors/{monitor_id}/runs/{run_id}/resolve", {"rationale": rationale})
+
+    def log_production_sample(
+        self, model_id: str, input_text: str, output_text: str, metadata: Optional[dict] = None
+    ) -> None:
+        """Send production sample telemetry (derived features only by default; P1)."""
+        pass
+

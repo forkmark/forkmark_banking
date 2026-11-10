@@ -141,6 +141,7 @@ class ModelRecord:
     # Observed evaluation signals for this model (e.g. per-group fairness scores),
     # ingested from validation runs; used to auto-assemble the validation memo.
     evaluation_signals: dict[str, Any] = field(default_factory=dict)
+    connector_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-friendly dict (enums -> values, datetimes -> ISO)."""
@@ -160,6 +161,7 @@ class ModelRecord:
             "next_validation_due": _iso(self.next_validation_due),
             "present_artifacts": list(self.present_artifacts),
             "evaluation_signals": dict(self.evaluation_signals),
+            "connector_id": self.connector_id,
         }
 
     @classmethod
@@ -187,6 +189,7 @@ class ModelRecord:
             next_validation_due=_parse_dt(row.get("next_validation_due")),
             present_artifacts=list(json.loads(row["present_artifacts"] or "[]")),
             evaluation_signals=json.loads(row.get("evaluation_signals") or "{}"),
+            connector_id=row.get("connector_id") or "",
         )
 
 
@@ -271,8 +274,8 @@ class ModelInventory:
                         risk_tier, regulatory_frameworks, deployed_at,
                         last_validated_at, next_validation_due, owner_team,
                         documentation_url, status, present_artifacts,
-                        evaluation_signals, created_at, updated_at
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        evaluation_signals, connector_id, created_at, updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         record.model_id,
                         record.display_name,
@@ -289,6 +292,7 @@ class ModelInventory:
                         record.status.value,
                         json.dumps(list(record.present_artifacts)),
                         json.dumps(dict(record.evaluation_signals)),
+                        record.connector_id or "",
                         now,
                         now,
                     ),
@@ -389,7 +393,7 @@ class ModelInventory:
                     risk_tier = ?, regulatory_frameworks = ?, deployed_at = ?,
                     last_validated_at = ?, next_validation_due = ?, owner_team = ?,
                     documentation_url = ?, status = ?, present_artifacts = ?,
-                    evaluation_signals = ?, updated_at = ?
+                    evaluation_signals = ?, connector_id = ?, updated_at = ?
                    WHERE model_id = ?""",
                 (
                     record.display_name,
@@ -406,6 +410,7 @@ class ModelInventory:
                     record.status.value,
                     json.dumps(list(record.present_artifacts)),
                     json.dumps(dict(record.evaluation_signals)),
+                    record.connector_id or "",
                     _now().isoformat(),
                     model_id,
                 ),
@@ -490,7 +495,12 @@ class ModelInventory:
             present_set = set(model.present_artifacts)
             coverages: list[FrameworkCoverage] = []
             for framework in model.regulatory_frameworks:
-                required = get_framework_requirements(framework).required_artifacts
+                req_obj = get_framework_requirements(framework)
+                required = list(req_obj.required_artifacts)
+                if (model.provider or "").strip().lower() != "in-house":
+                    for va in req_obj.vendor_artifacts:
+                        if va not in required:
+                            required.append(va)
                 present = [a for a in required if a in present_set]
                 missing = [a for a in required if a not in present_set]
                 coverages.append(

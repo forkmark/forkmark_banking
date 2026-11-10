@@ -73,6 +73,8 @@ class ValidationMemoResponse(BaseModel):
     statistical_results: List[Dict[str, Any]]
     bias_and_fairness: Dict[str, Any]
     numerical_fidelity: Dict[str, Any]
+    robustness_and_safety: Optional[Dict[str, Any]] = None
+    ongoing_monitoring: Optional[Dict[str, Any]] = None
     human_review_summary: Dict[str, Any]
     regulatory_mapping: Dict[str, Any]
     findings_and_recommendations: List[Dict[str, Any]]
@@ -217,6 +219,32 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
         model_id, len(runs), ", ".join(r.id for r in runs),
     )
 
+    # Safety and Stress summaries from linked runs
+    safety_summaries = []
+    stress_summaries = []
+    for er in runs:
+        rk = getattr(er, "run_kind", "eval")
+        try:
+            summary = db.get_safety_summary(er.id)
+            if summary and summary.get("total_cases", 0) > 0:
+                if rk == "stress":
+                    stress_summaries.append(summary)
+                else:
+                    safety_summaries.append(summary)
+        except Exception as exc:
+            logger.debug("No safety summary for run %s: %s", er.id, exc)
+
+    # Continuous monitoring runs
+    monitoring_runs = []
+    try:
+        monitors = db.list_monitors(model_id=model_id)
+        for m in monitors:
+            mruns = db.list_monitor_runs(monitor_id=m["id"], limit=50)
+            monitoring_runs.extend(mruns)
+        monitoring_runs.sort(key=lambda r: r.get("created_at") or "")
+    except Exception as exc:
+        logger.debug("Failed to list monitors for model %s: %s", model_id, exc)
+
     # Fairness: compute a real disparity + verdict from the model's observed
     # per-group scores (ingested from the fairness test set).
     bias_results = []
@@ -226,10 +254,44 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
     if groups and len(groups) >= 2:
         bias_results.append(BiasDisparityEvaluator().evaluate(groups))
 
+    # Provenance and third-party model governance
+    prov_dict = {}
+    try:
+        fingerprints = db.list_model_fingerprints(model_id, limit=50)
+        connector = db.get_provider(model.connector_id) if (model and model.connector_id) else None
+
+        region = (connector.get("inference_region") if connector else "") or "me-central-1"
+        is_cb = False
+        reg_lower = region.lower()
+        if reg_lower not in ("me-central-1", "uaenorth", "uae-north", "uae-central", "uae", "local", "on-prem") and "uae" not in reg_lower and "me-central" not in reg_lower:
+            is_cb = True
+
+        reported_models = list(dict.fromkeys(f.get("model_reported") for f in fingerprints if f.get("model_reported")))
+        fp_list = list(dict.fromkeys(f.get("system_fingerprint") for f in fingerprints if f.get("system_fingerprint")))
+
+        prov_dict = {
+            "vendor": (connector.get("vendor_name") if connector else "") or (model.provider if model else ""),
+            "licence": (connector.get("licence") if connector else "") or "Proprietary",
+            "hosting": (connector.get("hosting") if connector else "") or ("Sovereign Cloud" if not is_cb else "Cloud"),
+            "inference_region": region,
+            "is_cross_border": is_cb,
+            "models_reported": reported_models,
+            "fingerprints": fp_list,
+            "vendor_changed_unvalidated": (model.status.value.lower() == "changed") if model else False,
+        }
+    except Exception as exc:
+        logger.debug("Failed to construct provenance for model %s: %s", model_id, exc)
+
     suite = ["NumericalFidelityEvaluator"]
     if bias_results:
         suite.append("BiasDisparityEvaluator")
     suite.append("human_effective_challenge")
+    if safety_summaries:
+        suite.append("SafetySuiteEvaluator")
+    if stress_summaries:
+        suite.append("StressPerturbationEvaluator")
+    if monitoring_runs:
+        suite.append("ContinuousDriftMonitor")
 
     return ValidationEvidence(
         numerical_fidelity_results=fidelity_results,
@@ -238,6 +300,10 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
         evaluator_suite=suite,
         validation_period_start=period_start,
         validation_period_end=period_end,
+        safety_summaries=safety_summaries,
+        stress_summaries=stress_summaries,
+        monitoring_runs=monitoring_runs,
+        provenance=prov_dict,
     )
 
 

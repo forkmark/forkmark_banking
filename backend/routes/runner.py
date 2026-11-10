@@ -97,27 +97,26 @@ def _resolve_credentials(provider_id: Optional[str] = None) -> tuple:
 
 # ── LLM call helper ─────────────────────────────────────────────────────────
 
-def _call_llm(api_key: str, base_url: str, model_id: str,
-              temperature: float, messages: list) -> dict:
-    import httpx
-    url = (base_url.rstrip("/") if base_url else "https://api.openai.com") + "/v1/chat/completions"
-    t0 = time.time()
-    resp = httpx.post(
-        url,
-        json={"model": model_id, "messages": messages, "temperature": temperature},
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=60,
+def _call_llm(model_id: str, temperature: float, messages: list,
+              provider_id: Optional[str] = None, eval_run_id: Optional[str] = None) -> dict:
+    from core.llm_gateway import gateway
+    resp = gateway.chat(
+        connector_id=provider_id,
+        messages=messages,
+        model=model_id,
+        temperature=temperature,
+        purpose="runner",
+        eval_run_id=eval_run_id,
     )
-    latency_ms = int((time.time() - t0) * 1000)
-    resp.raise_for_status()
-    data = resp.json()
-    choice = data["choices"][0]["message"]["content"]
-    usage = data.get("usage", {})
     return {
-        "text": choice,
-        "tokens_input": usage.get("prompt_tokens", 0),
-        "tokens_output": usage.get("completion_tokens", 0),
-        "latency_ms": latency_ms,
+        "text": resp.text,
+        "tokens_input": resp.tokens_in,
+        "tokens_output": resp.tokens_out,
+        "latency_ms": resp.latency_ms,
+        "model_reported": resp.model_reported,
+        "system_fingerprint": resp.system_fingerprint,
+        "finish_reason": resp.finish_reason,
+        "cross_border": resp.cross_border,
     }
 
 
@@ -126,10 +125,21 @@ def _call_llm(api_key: str, base_url: str, model_id: str,
 @router.post("/runner", status_code=201, response_model=RunnerResponse)
 async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
     import concurrent.futures as _cf
+    from core.llm_gateway import gateway
+    from core.egress_policy import EgressBlocked
 
-    # Resolve credentials per branch (or shared fallback)
+    # 1. Resolve credentials per branch (validates provider existence and API keys first)
     key_a, url_a = _resolve_credentials(body.branch_a.provider_id)
     key_b, url_b = _resolve_credentials(body.branch_b.provider_id)
+
+    # 2. Egress pre-validation: check both branches through the gateway
+    try:
+        conn_a = gateway._resolve_connection(body.branch_a.provider_id)
+        gateway._check_and_log_egress(conn_a, body.branch_a.model_id, "runner", None, "system")
+        conn_b = gateway._resolve_connection(body.branch_b.provider_id)
+        gateway._check_and_log_egress(conn_b, body.branch_b.model_id, "runner", None, "system")
+    except EgressBlocked as e:
+        raise HTTPException(403, str(e))
 
     if not body.test_cases:
         raise HTTPException(400, "test_cases must not be empty")
@@ -157,7 +167,7 @@ async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
         branch_a_obj = await asyncio.to_thread(db.create_branch, run.id, wf.id, body.branch_a.name, body.branch_a.model_id)
         branch_b_obj = await asyncio.to_thread(db.create_branch, run.id, wf.id, body.branch_b.name, body.branch_b.model_id)
 
-        def _run_branch(branch_cfg, branch_obj, b_key, b_url):
+        def _run_branch(branch_cfg, branch_obj):
             context_messages: list[dict] = []
             for idx, step in enumerate(branch_cfg.steps):
                 user_content = step.user_prompt_template.replace("{{input}}", tc.input)
@@ -165,7 +175,7 @@ async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
                     [{"role": "system", "content": step.system_prompt}] if step.system_prompt else []
                 ) + context_messages + [{"role": "user", "content": user_content}]
                 try:
-                    result = _call_llm(b_key, b_url, branch_cfg.model_id, branch_cfg.temperature, messages)
+                    result = _call_llm(branch_cfg.model_id, branch_cfg.temperature, messages, branch_cfg.provider_id, er.id)
                     db.save_step_output(
                         run_id=run.id, branch_id=branch_obj.id,
                         step_name=step.name, step_index=idx,
@@ -173,6 +183,12 @@ async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
                         model_id=branch_cfg.model_id, temperature=branch_cfg.temperature,
                         tokens_input=result["tokens_input"], tokens_output=result["tokens_output"],
                         latency_ms=result["latency_ms"],
+                        provider_meta={
+                            "model_reported": result.get("model_reported", ""),
+                            "system_fingerprint": result.get("system_fingerprint", ""),
+                            "finish_reason": result.get("finish_reason", "stop"),
+                            "cross_border": result.get("cross_border", 0),
+                        },
                     )
                     context_messages.append({"role": "assistant", "content": result["text"]})
                 except Exception as exc:
@@ -181,8 +197,8 @@ async def run_workflow_nocode(body: RunnerBody, _auth=Depends(ui_write_auth)):
         # Execute both branches concurrently across thread pool
         loop = asyncio.get_running_loop()
         await asyncio.gather(
-            loop.run_in_executor(None, _run_branch, body.branch_a, branch_a_obj, key_a, url_a),
-            loop.run_in_executor(None, _run_branch, body.branch_b, branch_b_obj, key_b, url_b),
+            loop.run_in_executor(None, _run_branch, body.branch_a, branch_a_obj),
+            loop.run_in_executor(None, _run_branch, body.branch_b, branch_b_obj),
         )
 
         step_names = [s.name for s in body.branch_a.steps]
@@ -232,39 +248,44 @@ async def playground_run(body: PlaygroundRequest, background: BackgroundTasks,
 
     wf = db.upsert_workflow("Playground", description="Interactive prompt playground")
 
-    async def _call_model(model: str, m_key: str, m_url: str,
+    from core.llm_gateway import gateway
+    from core.egress_policy import EgressBlocked
+
+    # Egress preflight validation
+    try:
+        conn_a = gateway._resolve_connection(body.provider_id_a)
+        gateway._check_and_log_egress(conn_a, body.model_a, "playground", None, "system")
+        conn_b = gateway._resolve_connection(body.provider_id_b)
+        gateway._check_and_log_egress(conn_b, body.model_b, "playground", None, "system")
+    except EgressBlocked as e:
+        raise HTTPException(403, str(e))
+
+    async def _call_model(model: str, provider_id: Optional[str],
                           temperature: float, max_tokens: int):
-        t0 = time.time()
-        url = (m_url.rstrip("/") if m_url else "https://api.openai.com/v1") + "/chat/completions"
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                url,
-                headers={"Authorization": f"Bearer {m_key}", "Content-Type": "application/json"},
-                json={"model": model, "messages": messages,
-                      "temperature": temperature, "max_tokens": max_tokens},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        latency_ms = int((time.time() - t0) * 1000)
-        choice = data.get("choices", [{}])[0]
-        usage = data.get("usage", {})
+        resp = await gateway.achat(
+            connector_id=provider_id,
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            purpose="playground",
+        )
         return {
-            "output_text": choice.get("message", {}).get("content", ""),
-            "model_id": model,
-            "latency_ms": latency_ms,
-            "tokens_input": usage.get("prompt_tokens", 0),
-            "tokens_output": usage.get("completion_tokens", 0),
-            "finish_reason": choice.get("finish_reason", ""),
+            "output_text": resp.text,
+            "model_id": resp.model_reported,
+            "latency_ms": resp.latency_ms,
+            "tokens_input": resp.tokens_in,
+            "tokens_output": resp.tokens_out,
+            "finish_reason": resp.finish_reason,
         }
 
     try:
-        import asyncio
         result_a, result_b = await asyncio.gather(
-            _call_model(body.model_a, key_a, url_a, temp_a, max_a),
-            _call_model(body.model_b, key_b, url_b, temp_b, max_b),
+            _call_model(body.model_a, body.provider_id_a, temp_a, max_a),
+            _call_model(body.model_b, body.provider_id_b, temp_b, max_b),
         )
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(502, f"Model API error: {e.response.status_code} — {e.response.text[:200]}")
+    except EgressBlocked as e:
+        raise HTTPException(403, str(e))
     except Exception as e:
         raise HTTPException(502, f"Model call failed: {str(e)[:200]}")
 

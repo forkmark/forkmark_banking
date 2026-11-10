@@ -46,7 +46,7 @@ regulations or a firm's own model risk policy.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 __all__ = [
@@ -108,6 +108,8 @@ class ArtifactType(str, Enum):
     INDEPENDENT_VALIDATION = "independent_validation_report"
     DATA_MANAGEMENT_FRAMEWORK = "data_management_framework"
     VALIDATION_MEMO = "validation_memo"
+    ROBUSTNESS_STRESS_TEST = "robustness_stress_test"
+    VENDOR_DUE_DILIGENCE = "vendor_due_diligence_record"
 
 
 @dataclass(frozen=True)
@@ -141,6 +143,7 @@ class FrameworkRequirements:
     bias_test_required: bool
     human_oversight_required: bool
     documentation_fields: list[str]
+    vendor_artifacts: list[str] = field(default_factory=list)
 
 
 _REQUIREMENTS: dict[RegulatoryFramework, FrameworkRequirements] = {
@@ -185,6 +188,7 @@ _REQUIREMENTS: dict[RegulatoryFramework, FrameworkRequirements] = {
             "model_governance_and_oversight_committee",
             "model_limitations_and_weaknesses",
         ],
+        vendor_artifacts=[ArtifactType.VENDOR_DUE_DILIGENCE.value],
     ),
     RegulatoryFramework.CBUAE: FrameworkRequirements(
         framework=RegulatoryFramework.CBUAE,
@@ -205,6 +209,8 @@ _REQUIREMENTS: dict[RegulatoryFramework, FrameworkRequirements] = {
             ArtifactType.HUMAN_OVERSIGHT.value,
             ArtifactType.DATA_PRIVACY_RECORD.value,
             ArtifactType.VALIDATION_MEMO.value,
+            ArtifactType.ROBUSTNESS_STRESS_TEST.value,
+            ArtifactType.ONGOING_MONITORING.value,
         ],
         validation_cycle_days=_ANNUAL_CYCLE_DAYS,
         bias_test_required=True,
@@ -218,6 +224,7 @@ _REQUIREMENTS: dict[RegulatoryFramework, FrameworkRequirements] = {
             "data_privacy_and_protection_controls",
             "third_party_and_cloud_vendor_due_diligence",
         ],
+        vendor_artifacts=[ArtifactType.VENDOR_DUE_DILIGENCE.value],
     ),
     RegulatoryFramework.UAE_ENABLING_TECH: FrameworkRequirements(
         framework=RegulatoryFramework.UAE_ENABLING_TECH,
@@ -257,6 +264,7 @@ _REQUIREMENTS: dict[RegulatoryFramework, FrameworkRequirements] = {
             "consumer_and_market_conduct_safeguards",
             "supervisory_engagement_record",
         ],
+        vendor_artifacts=[ArtifactType.VENDOR_DUE_DILIGENCE.value],
     ),
     # ── International regimes — additional coverage ──────────────────────────
     RegulatoryFramework.EU_AI_ACT: FrameworkRequirements(

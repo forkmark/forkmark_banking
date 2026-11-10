@@ -298,46 +298,32 @@ def _eval_latency_check(output: str, config: dict, context: dict) -> EvalResult:
 # ── LLM-based evaluators ─────────────────────────────────────────────────────
 
 async def _llm_evaluate(prompt: str, evaluator_name: str) -> EvalResult:
-    """Shared LLM-as-judge call for LLM-based evaluators."""
-    api_key  = os.getenv("FM_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("FM_JUDGE_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model    = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
-
-    if not api_key:
-        return EvalResult(name=evaluator_name, passed=False, score=0.0,
-                          detail="No API key configured (FM_OPENAI_API_KEY)")
+    """Shared LLM-as-judge call for LLM-based evaluators via ModelGateway."""
+    model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
 
     try:
-        import httpx
-        from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+        from core.llm_gateway import gateway
+        from core.egress_policy import EgressBlocked
 
-        client = await _get_async_client()
-
-        @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3),
-               retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)))
-        async def _post():
-            resp = await client.post(
-                f"{base_url}/chat/completions",
-                json={
-                    "model":       model,
-                    "messages":    [{"role": "user", "content": prompt}],
-                    "temperature": 0.0,
-                    "max_tokens":  100,
-                },
-                headers={"Authorization": f"Bearer {api_key}",
-                         "Content-Type": "application/json"},
-            )
-            resp.raise_for_status()
-            return resp
-
-        resp = await _post()
-        raw = resp.json()["choices"][0]["message"]["content"].strip()
+        resp = await gateway.achat(
+            None,
+            [{"role": "user", "content": prompt}],
+            model=model,
+            temperature=0.0,
+            max_tokens=100,
+            purpose="judge",
+        )
+        raw = resp.text.strip()
 
         # Parse "SCORE: 0.8\nEXPLANATION: ..." format
         lines = raw.split("\n")
         score_line = lines[0] if lines else raw
-        score_val = float(re.search(r'[\d.]+', score_line).group())
-        score_val = min(max(score_val, 0.0), 1.0)
+        score_match = re.search(r'[\d.]+', score_line)
+        if score_match:
+            score_val = float(score_match.group())
+            score_val = min(max(score_val, 0.0), 1.0)
+        else:
+            score_val = 0.0
         explanation = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
         return EvalResult(
@@ -347,8 +333,12 @@ async def _llm_evaluate(prompt: str, evaluator_name: str) -> EvalResult:
             detail=explanation or f"Score: {score_val}",
         )
     except Exception as e:
-        return EvalResult(name=evaluator_name, passed=False, score=0.0,
-                          detail=f"LLM evaluation failed: {e}")
+        return EvalResult(
+            name=evaluator_name,
+            passed=False,
+            score=0.0,
+            detail=f"LLM evaluation failed: {e}",
+        )
 
 
 async def _eval_faithfulness(output: str, config: dict, context: dict) -> EvalResult:
@@ -577,36 +567,21 @@ EXPLANATION: <brief explanation>"""
                 return 0.4
             return 0.25
 
-    import httpx
-    from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
-
-    api_key = os.getenv("FM_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY", "")
-    model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
-    base_url = os.getenv("FM_JUDGE_BASE_URL", "https://api.openai.com/v1")
-
-    if not api_key:
-        return EvalResult(name="pairwise_preference", passed=False, score=0.5,
-                          detail="No API key set (FM_OPENAI_API_KEY)")
-
-    client = await _get_async_client()
-
-    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3),
-           retry=retry_if_exception_type((httpx.RequestError, httpx.HTTPStatusError)))
-    async def _post(prompt):
-        resp = await client.post(
-            f"{base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={"model": model, "messages": [{"role": "user", "content": prompt}],
-                  "max_tokens": 200, "temperature": 0.0},
-        )
-        resp.raise_for_status()
-        return resp
-
-    # Run 1: A first, B second
-    prompt1 = _build_prompt(trunc_a, trunc_b, "A", "B")
     try:
-        resp1 = await _post(prompt1)
-        text1 = resp1.json()["choices"][0]["message"]["content"]
+        from core.llm_gateway import gateway
+        model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
+
+        # Run 1: A first, B second
+        prompt1 = _build_prompt(trunc_a, trunc_b, "A", "B")
+        resp1 = await gateway.achat(
+            None,
+            [{"role": "user", "content": prompt1}],
+            model=model,
+            max_tokens=200,
+            temperature=0.0,
+            purpose="judge",
+        )
+        text1 = resp1.text
         score1 = _parse_winner(text1, "A")
     except Exception as e:
         return EvalResult(name="pairwise_preference", passed=False, score=0.5,
@@ -622,12 +597,24 @@ EXPLANATION: <brief explanation>"""
     # Run 2: B first, A second (position debiasing)
     prompt2 = _build_prompt(trunc_b, trunc_a, "B", "A")
     try:
-        resp2 = await _post(prompt2)
-        text2 = resp2.json()["choices"][0]["message"]["content"]
+        resp2 = await gateway.achat(
+            None,
+            [{"role": "user", "content": prompt2}],
+            model=model,
+            max_tokens=200,
+            temperature=0.0,
+            purpose="judge",
+        )
+        text2 = resp2.text
         # In run 2, if "A" wins that means original A wins (labels are swapped)
         score2 = _parse_winner(text2, "A")
     except Exception:
         # Fall back to single-run result
+        winner = "A" if score1 > 0.5 else "B"
+        return EvalResult(
+            name="pairwise_preference", passed=True, score=score1,
+            detail=f"Winner: {winner} (criteria: {criteria}, single-pass). {text1.strip()}"
+        )
         score2 = score1
 
     # Average scores from both positions

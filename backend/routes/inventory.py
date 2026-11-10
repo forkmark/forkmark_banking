@@ -7,11 +7,14 @@ CRUD over that inventory plus the revalidation-due query model risk teams rely o
 from __future__ import annotations
 
 import logging
+import asyncio
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
+_BACKGROUND_TASKS: Set[asyncio.Task] = set()
 
 from backend.deps import db, principal, ui_read_auth, ui_write_auth
 from core.model_inventory import (
@@ -71,6 +74,7 @@ class ModelCreate(BaseModel):
                     "to compute the disparity assessment when a validation memo "
                     "auto-assembles its evidence.",
     )
+    connector_id: Optional[str] = ""
 
 
 class ModelUpdate(BaseModel):
@@ -94,6 +98,8 @@ class ModelUpdate(BaseModel):
                     "to compute the disparity assessment when a validation memo "
                     "auto-assembles its evidence.",
     )
+    connector_id: Optional[str] = None
+    due_diligence_reviewed: Optional[bool] = None
 
 
 class ModelResponse(BaseModel):
@@ -114,6 +120,37 @@ class ModelResponse(BaseModel):
     next_validation_due: Optional[str]
     present_artifacts: List[str]
     evaluation_signals: Dict[str, Any] = Field(default_factory=dict)
+    connector_id: Optional[str] = ""
+
+
+class ValidationRunBranch(BaseModel):
+    connector_id: Optional[str] = None
+    model: str = "default"
+    temperature: float = 0.0
+    system_prompt: Optional[str] = None
+
+
+class ValidationRunRequest(BaseModel):
+    test_set_id: str
+    champion: ValidationRunBranch
+    challenger: Optional[ValidationRunBranch] = None
+    suites: List[str] = Field(default_factory=lambda: ["ab"])
+    evaluators: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ValidationRunResponse(BaseModel):
+    eval_run_ids: List[str]
+
+
+class FingerprintResponse(BaseModel):
+    id: str
+    governed_model_id: str
+    connector_id: str
+    observed_at: str
+    model_reported: str
+    system_fingerprint: str = ""
+    source: str
+    eval_run_id: Optional[str] = None
 
 
 def _to_response(record: ModelRecord) -> ModelResponse:
@@ -151,6 +188,7 @@ def create_model(body: ModelCreate, request: Request,
         next_validation_due=body.next_validation_due,
         present_artifacts=list(body.present_artifacts),
         evaluation_signals=dict(body.evaluation_signals),
+        connector_id=body.connector_id or "",
     )
     actor, role = principal(x_api_key)
     ip = request.client.host if request.client else ""
@@ -222,6 +260,16 @@ def update_model(
     actor, role = principal(x_api_key)
     ip = request.client.host if request.client else ""
     changes: dict[str, Any] = {name: getattr(body, name) for name in body.model_fields_set}
+    if "due_diligence_reviewed" in changes:
+        dd = changes.pop("due_diligence_reviewed")
+        if dd:
+            curr = _inventory.get_model(model_id)
+            arts = set(changes.get("present_artifacts") or (curr.present_artifacts if curr else []))
+            arts.add("vendor_due_diligence_record")
+            changes["present_artifacts"] = list(arts)
+            sigs = dict(changes.get("evaluation_signals") or (curr.evaluation_signals if curr else {}))
+            sigs["due_diligence_reviewed"] = True
+            changes["evaluation_signals"] = sigs
     try:
         updated = _inventory.update_model(
             model_id, audit_actor=actor, audit_role=role, ip=ip, **changes
@@ -269,3 +317,107 @@ def delete_model(model_id: str, request: Request,
             f"Audit trail write failed for model.delete: supervisory action refused to preserve regulatory compliance ({exc})",
         ) from exc
     return None
+
+
+@router.post(
+    "/inventory/models/{model_id}/validation-runs",
+    status_code=202,
+    response_model=ValidationRunResponse,
+    summary="Trigger validation runs for a governed model",
+)
+async def trigger_validation_runs(
+    model_id: str,
+    body: ValidationRunRequest,
+    request: Request,
+    x_api_key: str = Header(None, alias="X-API-Key"),
+    _auth: object = Depends(ui_write_auth),
+) -> ValidationRunResponse:
+    """Trigger background validation runs for a governed model across one or more test suites."""
+    record = _inventory.get_model(model_id)
+    if record is None:
+        raise HTTPException(404, f"Model not found: {model_id}")
+
+    raw_cases = db.list_test_cases(body.test_set_id)
+    if not raw_cases:
+        raise HTTPException(400, f"Test set {body.test_set_id} not found or contains no test cases")
+
+    test_cases = [tc.to_dict() if hasattr(tc, "to_dict") else dict(tc) for tc in raw_cases]
+
+    champ_dict = body.champion.model_dump()
+    if not champ_dict.get("connector_id"):
+        champ_dict["connector_id"] = record.connector_id
+    if not champ_dict.get("connector_id"):
+        def_creds = db.get_default_provider_credentials()
+        if def_creds:
+            champ_dict["connector_id"] = def_creds.get("provider_id")
+
+    chal_dict = body.challenger.model_dump() if body.challenger else None
+
+    # Egress pre-validation
+    from core.llm_gateway import gateway
+    from core.egress_policy import EgressBlocked
+    try:
+        conn_a = gateway._resolve_connection(champ_dict.get("connector_id"))
+        gateway._check_and_log_egress(conn_a, champ_dict.get("model", "default"), "validation_run", None, "system")
+        if chal_dict and chal_dict.get("connector_id"):
+            conn_b = gateway._resolve_connection(chal_dict.get("connector_id"))
+            gateway._check_and_log_egress(conn_b, chal_dict.get("model", "default"), "validation_run", None, "system")
+    except EgressBlocked as e:
+        raise HTTPException(403, str(e))
+
+    wf = db.upsert_workflow(f"validation_{model_id}")
+    eval_run_ids = []
+
+    from core.suite_runner import run_suite_async
+
+    suites = body.suites or ["ab"]
+    for suite in suites:
+        er_name = f"{record.display_name} — {suite.upper()} validation"
+        er = db.create_eval_run(
+            workflow_id=wf.id,
+            name=er_name,
+            branch_a_config=champ_dict,
+            branch_b_config=chal_dict or {},
+            description=f"{suite.capitalize()} suite validation run for model {model_id}",
+            test_set_id=body.test_set_id,
+            total_cases=len(test_cases),
+            governed_model_id=model_id,
+            run_kind=suite,
+        )
+        eval_run_ids.append(er.id)
+
+        task = asyncio.create_task(
+            run_suite_async(
+                db=db,
+                eval_run_id=er.id,
+                workflow_id=wf.id,
+                test_cases=test_cases,
+                champion=champ_dict,
+                challenger=chal_dict,
+                governed_model_id=model_id,
+                run_kind=suite,
+                evaluators=body.evaluators,
+            )
+        )
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+    return ValidationRunResponse(eval_run_ids=eval_run_ids)
+
+
+@router.get(
+    "/inventory/models/{model_id}/fingerprints",
+    response_model=List[FingerprintResponse],
+    summary="List observed fingerprints for a governed model",
+)
+def list_model_fingerprints(
+    model_id: str,
+    limit: int = Query(50, ge=1, le=500),
+    _auth: object = Depends(ui_read_auth),
+) -> List[FingerprintResponse]:
+    """List hardware and model provenance fingerprints observed for this governed model."""
+    record = _inventory.get_model(model_id)
+    if record is None:
+        raise HTTPException(404, f"Model not found: {model_id}")
+    fps = db.list_fingerprints(governed_model_id=model_id, limit=limit)
+    return [FingerprintResponse(**fp) for fp in fps]

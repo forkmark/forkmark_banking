@@ -8,7 +8,8 @@ class EvalRunsMixin:
     def create_eval_run(self, workflow_id: str, name: str,
                         branch_a_config: dict, branch_b_config: dict,
                         description: str = "", test_set_id: str = None,
-                        total_cases: int = 0, governed_model_id: str = None) -> EvalRun:
+                        total_cases: int = 0, governed_model_id: str = None,
+                        run_kind: str = "ab") -> EvalRun:
         now = datetime.now(timezone.utc)
         er = EvalRun(
             id=str(uuid.uuid4()), workflow_id=workflow_id, name=name,
@@ -16,17 +17,19 @@ class EvalRunsMixin:
             branch_a_config=branch_a_config, branch_b_config=branch_b_config,
             status=EvalRunStatus.PENDING, total_cases=total_cases, created_at=now,
             governed_model_id=governed_model_id,
+            run_kind=run_kind or "ab",
         )
         with self._conn() as c:
             c.execute("""
                 INSERT INTO eval_runs
                 (id,workflow_id,name,description,test_set_id,governed_model_id,
-                 branch_a_config,branch_b_config,status,total_cases,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                 branch_a_config,branch_b_config,status,total_cases,created_at,run_kind)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (er.id, er.workflow_id, er.name, er.description, er.test_set_id,
                  er.governed_model_id,
                  json.dumps(er.branch_a_config), json.dumps(er.branch_b_config),
-                 er.status.value, er.total_cases, er.created_at.isoformat()),
+                 er.status.value, er.total_cases, er.created_at.isoformat(),
+                 er.run_kind),
             )
             c.execute("UPDATE workflows SET eval_run_count=eval_run_count+1 WHERE id=?",
                       (workflow_id,))

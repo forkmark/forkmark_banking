@@ -136,9 +136,9 @@ class Config:
     # Enable agent trajectory comparison feature (new in v0.1.2)
     # Global env-var kill-switch; per-org / per-workspace gating is handled
     # by core.feature_flags at runtime.
-    ENABLE_AGENT_COMPARISON = os.getenv(
-        "FM_ENABLE_AGENT_COMPARISON", "false"
-    ).lower() in ("true", "1")
+    @property
+    def ENABLE_AGENT_COMPARISON(self) -> bool:
+        return os.getenv("FM_ENABLE_AGENT_COMPARISON", "false").lower() in ("true", "1")
 
     # ── OpenTelemetry ───────────────────────────────────────────────────────────
     # Enable OpenTelemetry tracing with GenAI semantic conventions

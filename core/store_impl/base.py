@@ -1252,6 +1252,171 @@ def _migration_v15(c):
               "ON audit_log(seq)")
 
 
+def _migration_v16(c):
+    """v16 — Gateway call log.
+
+    Every outbound model call, whether allowed or blocked, writes metadata-only
+    telemetry to gateway_call_log for supervisory egress auditing.
+    """
+    c.executescript("""
+        CREATE TABLE IF NOT EXISTS gateway_call_log (
+            id           TEXT PRIMARY KEY,
+            ts           TEXT NOT NULL,
+            purpose      TEXT NOT NULL DEFAULT '',
+            connector_id TEXT DEFAULT '',
+            host         TEXT NOT NULL DEFAULT '',
+            is_internal  INTEGER NOT NULL DEFAULT 0,
+            decision     TEXT NOT NULL DEFAULT 'allowed',
+            model        TEXT NOT NULL DEFAULT '',
+            http_status  INTEGER NOT NULL DEFAULT 0,
+            latency_ms   INTEGER NOT NULL DEFAULT 0,
+            tokens_in    INTEGER NOT NULL DEFAULT 0,
+            tokens_out   INTEGER NOT NULL DEFAULT 0,
+            cross_border INTEGER NOT NULL DEFAULT 0,
+            eval_run_id  TEXT DEFAULT NULL,
+            actor        TEXT NOT NULL DEFAULT 'system'
+        );
+        CREATE INDEX IF NOT EXISTS idx_gateway_ts
+            ON gateway_call_log(ts DESC);
+        CREATE INDEX IF NOT EXISTS idx_gateway_decision_ts
+            ON gateway_call_log(decision, ts DESC);
+    """)
+
+
+def _migration_v17(c):
+    """v17 — Connectors and live validation runs.
+
+    Extends llm_providers with connector configurations, links governed models
+    to connector endpoints, adds run_kind to eval_runs, provider_meta to step_outputs,
+    and creates the model_fingerprints table for hardware/model provenance tracking.
+    """
+    _add_column(c, "llm_providers", "deployment_kind", "TEXT DEFAULT 'openai_compatible'")
+    _add_column(c, "llm_providers", "model_family", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "default_model", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "azure_deployment", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "api_version", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "azure_deployment_type", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "inference_region", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "hosting", "TEXT DEFAULT 'bank_self_hosted'")
+    _add_column(c, "llm_providers", "vendor_name", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "licence", "TEXT DEFAULT ''")
+    _add_column(c, "llm_providers", "max_concurrency", "INTEGER DEFAULT 4")
+    _add_column(c, "llm_providers", "timeout_s", "REAL DEFAULT 60.0")
+    _add_column(c, "llm_providers", "rpm_limit", "INTEGER DEFAULT 120")
+    _add_column(c, "llm_providers", "rpd_limit", "INTEGER DEFAULT 100000")
+    _add_column(c, "llm_providers", "max_input_tokens", "INTEGER DEFAULT 4096")
+
+    c.execute("UPDATE llm_providers SET deployment_kind = 'anthropic' WHERE provider_type = 'anthropic'")
+    c.execute("UPDATE llm_providers SET deployment_kind = 'azure_openai' WHERE provider_type = 'azure_openai'")
+    c.execute("UPDATE llm_providers SET deployment_kind = 'openai_compatible' WHERE deployment_kind IS NULL OR deployment_kind = ''")
+
+    _add_column(c, "model_inventory", "connector_id", "TEXT DEFAULT ''")
+    _add_column(c, "eval_runs", "run_kind", "TEXT DEFAULT 'ab'")
+    _add_column(c, "step_outputs", "provider_meta", "TEXT DEFAULT '{}'")
+
+    c.executescript("""
+        CREATE TABLE IF NOT EXISTS model_fingerprints (
+            id                 TEXT PRIMARY KEY,
+            governed_model_id  TEXT NOT NULL,
+            connector_id       TEXT NOT NULL,
+            observed_at        TEXT NOT NULL,
+            model_reported     TEXT NOT NULL,
+            system_fingerprint TEXT,
+            source             TEXT NOT NULL,
+            eval_run_id        TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_mf_model_observed
+            ON model_fingerprints(governed_model_id, observed_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_mf_connector_observed
+            ON model_fingerprints(connector_id, observed_at DESC);
+    """)
+
+
+def _migration_v18(c):
+    """v18 — Safety results: safety_results table.
+
+    Stores per-case deterministic safety evaluation, detector verdicts, and
+    optional supervisory judge decisions for red-team and stress suites.
+    """
+    c.executescript("""
+        CREATE TABLE IF NOT EXISTS safety_results (
+            id                 TEXT PRIMARY KEY,
+            eval_run_id        TEXT NOT NULL,
+            governed_model_id  TEXT,
+            test_case_id       TEXT NOT NULL,
+            case_key           TEXT NOT NULL,
+            branch             TEXT NOT NULL,
+            category           TEXT NOT NULL,
+            language           TEXT NOT NULL,
+            severity           TEXT NOT NULL,
+            expected           TEXT NOT NULL,
+            verdict            TEXT NOT NULL,
+            detectors          TEXT NOT NULL DEFAULT '{}',
+            judge              TEXT NOT NULL DEFAULT '{}',
+            reply_excerpt      TEXT NOT NULL DEFAULT '',
+            created_at         TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_safety_eval_run
+            ON safety_results(eval_run_id);
+        CREATE INDEX IF NOT EXISTS idx_safety_model_created
+            ON safety_results(governed_model_id, created_at DESC);
+    """)
+
+
+def _migration_v19(c):
+    """v19 — Continuous monitoring: monitors and monitor_runs tables.
+
+    Stores continuous drift monitors (canary sets, noise floors, scheduled runs)
+    and per-run telemetry, metrics, and breach reports.
+    """
+    c.executescript("""
+        CREATE TABLE IF NOT EXISTS monitors (
+            id                   TEXT PRIMARY KEY,
+            governed_model_id    TEXT NOT NULL,
+            connector_id         TEXT NOT NULL,
+            test_set_id          TEXT NOT NULL,
+            baseline_eval_run_id TEXT,
+            noise_floor          TEXT NOT NULL DEFAULT '{}',
+            interval_hours       INTEGER NOT NULL DEFAULT 24,
+            include_safety_slice INTEGER NOT NULL DEFAULT 1,
+            thresholds           TEXT NOT NULL DEFAULT '{}',
+            enabled              INTEGER NOT NULL DEFAULT 1,
+            state                TEXT NOT NULL DEFAULT 'OK',
+            last_run_at          TEXT,
+            next_run_at          TEXT,
+            lease_owner          TEXT,
+            lease_expires_at     TEXT,
+            created_at           TEXT NOT NULL,
+            created_by           TEXT NOT NULL DEFAULT 'system'
+        );
+        CREATE INDEX IF NOT EXISTS idx_monitors_model
+            ON monitors(governed_model_id);
+        CREATE INDEX IF NOT EXISTS idx_monitors_next_run
+            ON monitors(enabled, next_run_at);
+
+        CREATE TABLE IF NOT EXISTS monitor_runs (
+            id                   TEXT PRIMARY KEY,
+            monitor_id           TEXT NOT NULL,
+            eval_run_id          TEXT,
+            started_at           TEXT NOT NULL,
+            finished_at          TEXT,
+            status               TEXT NOT NULL DEFAULT 'running',
+            state                TEXT NOT NULL DEFAULT 'OK',
+            metrics              TEXT NOT NULL DEFAULT '{}',
+            breaches             TEXT NOT NULL DEFAULT '[]',
+            model_reported       TEXT,
+            system_fingerprint   TEXT,
+            resolved_at          TEXT,
+            resolved_by          TEXT,
+            resolution_rationale TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_monitor_runs_monitor
+            ON monitor_runs(monitor_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_monitor_runs_eval
+            ON monitor_runs(eval_run_id);
+    """)
+
+
 _MIGRATIONS = [
     (1, "eval_run support columns",                          _migration_v1),
     (2, "async scoring, eval results, OTel, versioning",     _migration_v2),
@@ -1268,6 +1433,10 @@ _MIGRATIONS = [
     (13, "link eval runs to a governed model", _migration_v13),
     (14, "model evaluation_signals column", _migration_v14),
     (15, "audit_log tamper-evidence: hash chaining", _migration_v15),
+    (16, "gateway call log: gateway_call_log table",         _migration_v16),
+    (17, "connectors and live validation runs",              _migration_v17),
+    (18, "safety results: safety_results table",             _migration_v18),
+    (19, "continuous monitoring: monitors and monitor_runs", _migration_v19),
 ]
 
 

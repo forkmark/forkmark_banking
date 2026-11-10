@@ -7,22 +7,23 @@ from core.store_impl.base import *  # noqa: F401,F403
 class BranchesMixin:
     def create_branch(self, run_id: str, workflow_id: str, name: str, model_id: str,
                       temperature: float = 0.7, system_prompt: str = None,
-                      extra_config: dict = None, is_baseline: bool = False) -> Branch:
+                      extra_config: dict = None, is_baseline: bool = False,
+                      provider_id: str = None) -> Branch:
         now = datetime.now(timezone.utc)
         b = Branch(
             id=str(uuid.uuid4()), run_id=run_id, workflow_id=workflow_id,
             name=name, model_id=model_id, temperature=temperature,
             system_prompt=system_prompt, extra_config=extra_config or {},
-            created_at=now, is_baseline=is_baseline,
+            created_at=now, is_baseline=is_baseline, provider_id=provider_id,
         )
         with self._conn() as c:
             c.execute("""INSERT INTO branches
                 (id,run_id,workflow_id,name,model_id,temperature,system_prompt,
-                 extra_config,created_at,is_baseline)
-                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                 extra_config,created_at,is_baseline,provider_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                 (b.id, b.run_id, b.workflow_id, b.name, b.model_id, b.temperature,
                  b.system_prompt, json.dumps(b.extra_config),
-                 b.created_at.isoformat(), int(b.is_baseline)))
+                 b.created_at.isoformat(), int(b.is_baseline), provider_id))
         return b
 
     def get_branch(self, branch_id: str) -> Optional[Branch]:
@@ -43,7 +44,8 @@ class BranchesMixin:
                          tokens_input: int = 0, tokens_output: int = 0,
                          latency_ms: int = 0, error: str = None,
                          trace_id: str = None, span_id: str = None,
-                         cost_usd: float = None) -> StepOutput:
+                         cost_usd: float = None,
+                         provider_meta: dict = None) -> StepOutput:
         # Auto-estimate cost if not provided and tokens are available
         if cost_usd is None and (tokens_input or tokens_output):
             cost_usd = _estimate_cost(model_id, tokens_input, tokens_output)
@@ -56,18 +58,19 @@ class BranchesMixin:
             tokens_input=tokens_input, tokens_output=tokens_output,
             latency_ms=latency_ms, created_at=now, error=error,
             trace_id=trace_id, span_id=span_id, cost_usd=cost_usd,
+            provider_meta=provider_meta or {},
         )
         with self._conn() as c:
             c.execute("""INSERT INTO step_outputs
                 (id,run_id,branch_id,step_name,step_index,input_messages,output_text,
                  model_id,temperature,tokens_input,tokens_output,latency_ms,created_at,error,
-                 trace_id,span_id,cost_usd)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                 trace_id,span_id,cost_usd,provider_meta)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (so.id, so.run_id, so.branch_id, so.step_name, so.step_index,
                  json.dumps(so.input_messages), so.output_text, so.model_id,
                  so.temperature, so.tokens_input, so.tokens_output,
                  so.latency_ms, so.created_at.isoformat(), so.error,
-                 so.trace_id, so.span_id, so.cost_usd))
+                 so.trace_id, so.span_id, so.cost_usd, json.dumps(so.provider_meta)))
         return so
 
     def batch_save_step_outputs(self, steps: List[dict]) -> List[StepOutput]:

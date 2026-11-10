@@ -77,9 +77,14 @@ Open **http://localhost:7700**, go to **API Keys / Settings**, and paste the ret
 
 | ForkMark capability | What it produces | Supports |
 |---|---|---|
+| **Centralized LLM gateway** (`core/llm_gateway.py`) | Pre-socket egress policy enforcement, sovereign region verification, rate limiting, and caller telemetry | Data sovereignty (UAE on-soil hosting) and zero unauthorized external transmission |
+| **Model connectors** (`/inventory/models/{id}/validation-runs`) | Native connectors for sovereign and commercial models (Jais, Falcon, Azure OpenAI, OpenAI, Anthropic, Ollama, custom) | Vendor due diligence and cross-model validation |
 | **Model inventory** (`/inventory`) | Risk-tiered system of record with owner, frameworks, and validation dates | CBUAE MMS & AI Guidance model inventory; SR 26-2 inventory; PRA SS1/23 Principle 1 (identification & tiering) |
 | **Statistical analysis** (`/statistics`) | Win rate + Wilson CI, **paired t-test with paired Cohen's d_z** (default), Welch's independent-samples t-test with pooled *d* (opt-in), Benjamini-Hochberg FDR, power/MDE | SR 26-2 & PRA SS1/23 outcomes analysis; EU AI Act accuracy evidence |
 | **Champion vs. challenger** | The live model retained as the baseline and re-tested against a proposed version | CBUAE re-testing on every model upgrade; ongoing monitoring |
+| **Safety & red-team suite** (`/safety`) | 240-case bilingual (Arabic/English) seed corpus covering prompt injection, jailbreaks, data extraction, and toxicity with deterministic detectors | Robustness and safety evaluation; sovereign alignment verification |
+| **Stress perturbation engine** (`run_kind='stress'`) | Character, typographical, diacritic, and numeric perturbations evaluating flip rate and stability | Robustness under input degradation and adversarial stress |
+| **Continuous drift monitoring** (`/monitors`) | Scheduled canary executions, atomic distributed leases, PSI, grounding pass rate, divergence tracking, and webhook alerts | Continuous monitoring and early warning (MMS Section 9 & AI Guidance) |
 | **Bias & fairness evaluator** | Cross-group disparity ratio with a configurable threshold | EU AI Act bias testing; CBUAE fairness principle |
 | **Numerical fidelity evaluator** | Flags fabricated/altered figures vs. a source document | Accuracy / robustness; guards against material misstatement |
 | **Consistency evaluator** | Output stability (coefficient of variation) across paraphrases | Robustness of compliance-critical decisions |
@@ -87,12 +92,12 @@ Open **http://localhost:7700**, go to **API Keys / Settings**, and paste the ret
 | **Bilingual disclosure** | Validation memoranda written in **Arabic and English throughout** — every section, not just the summary — generated in-app | CBUAE transparency/explainability expectation for AI-assisted decisions |
 | **Regulatory coverage** (`/regulatory`) | Present vs. missing evidence artifacts per framework | Documentation completeness across all six regimes |
 | **Access control & audit** (RBAC + `/audit/log`) | Role-scoped API keys (viewer/reviewer/admin) and a hash-chained, tamper-evident audit trail of supervisory mutations, verifiable via `/audit/verify` | Segregation of duties and auditability (SR 26-2 governance; CBUAE MMS) |
-| **Validation memos** (`/compliance`) | 9-section validation memorandum (plus a Shari'ah attestation section for Islamic-finance models) as JSON, `.docx`, or printable HTML | The written validation record a supervisor expects |
+| **Validation memos** (`/compliance`) | 11-section validation memorandum (plus a Shari'ah attestation section for Islamic-finance models) as JSON, `.docx`, or printable HTML | The written validation record a supervisor expects |
 | **Revalidation calendar** | Models due for revalidation within a window | Ongoing monitoring and periodic revalidation |
 
-## What is built, and what is not
+## What is built
 
-The CBUAE's February 2026 AI guidance sets eight testable obligations for licensed institutions. Six are addressed by capabilities that compute today. Two are not built yet, and are listed here rather than implied by omission.
+The CBUAE's February 2026 AI guidance sets eight testable obligations for licensed financial institutions (LFIs). All eight are fully addressed by production-grade capabilities that compute out of the box in ForkMark:
 
 | Obligation under the Feb 2026 guidance | ForkMark | Status |
 |---|---|---|
@@ -101,9 +106,9 @@ The CBUAE's February 2026 AI guidance sets eight testable obligations for licens
 | No unsupported or ungrounded outputs | Numerical fidelity evaluator against a source document | **Built** |
 | Meaningful human oversight and challenge | Human review capture with rationale and attribution | **Built** |
 | Data provenance and audit trails | Hash-chained, tamper-evident audit log (verifiable via `/audit/verify`) with role-based access control | **Built** |
-| Disclosure in Arabic and English | Fully bilingual validation memorandum (every section in Arabic and English) | **Built** |
-| Stress-testing and continuous monitoring | Safety / jailbreak suite and drift monitoring | *Not built* |
-| Vendor AI held to the in-house standard | Native connectors for vendor and sovereign models (Jais, Falcon, GPT) | *Not built* |
+| Disclosure in Arabic and English | Fully bilingual 11-section validation memorandum (every section in Arabic and English) | **Built** |
+| Stress-testing and continuous monitoring | 240-case bilingual red-team safety suite, perturbation engine, and continuous drift monitors | **Built** |
+| Vendor AI held to the in-house standard | Native connectors for sovereign (Jais, Falcon) and commercial models with hardware fingerprinting | **Built** |
 
 Vendor models can still be evaluated today by streaming their outputs in through the SDK; what is missing is first-class connectors. See `examples/jais_banking_demo/` and `examples/adverse_action_demo/` for a worked end-to-end validation on an Arabic retail-banking assistant.
 

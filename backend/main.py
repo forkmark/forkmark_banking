@@ -86,8 +86,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: could not load cached pricing: {e}")
 
-    # 2. Refresh from LiteLLM upstream in the background — never blocks startup.
-    asyncio.create_task(_refresh_pricing_table())
+    # 2. Refresh from LiteLLM upstream in the background only when FM_REFRESH_PRICING=true (default false)
+    if os.getenv("FM_REFRESH_PRICING", "false").lower() in ("true", "1", "yes"):
+        asyncio.create_task(_refresh_pricing_table())
 
     # Recover scoring interrupted by a previous crash/restart. The in-process
     # background queue is not durable, so re-enqueue any comparisons still
@@ -99,7 +100,26 @@ async def lifespan(app: FastAPI):
             print(f"[forkmark] Re-enqueued {n} interrupted comparison(s) for scoring.")
     except Exception as e:
         print(f"Warning: scoring recovery sweep failed: {e}")
-    yield
+
+    # Optional in-process monitor scheduler
+    monitor_task = None
+    if os.getenv("FM_MONITOR_SCHEDULER", "off").lower() in ("inprocess", "true", "1"):
+        async def _inprocess_monitor_loop():
+            from scripts.run_monitors import run_all_due_monitors
+            while True:
+                try:
+                    await run_all_due_monitors(db)
+                except Exception as exc:
+                    print(f"Warning: inprocess monitor scheduler error: {exc}")
+                await asyncio.sleep(60)
+
+        monitor_task = asyncio.create_task(_inprocess_monitor_loop())
+
+    try:
+        yield
+    finally:
+        if monitor_task:
+            monitor_task.cancel()
 
 
 # ── App ──────────────────────────────────────────────────────────────────────
@@ -220,6 +240,9 @@ from backend.routes.inventory import router as inventory_router
 from backend.routes.statistics import router as statistics_router
 from backend.routes.compliance import router as compliance_router
 from backend.routes.audit import router as audit_router
+from backend.routes.gateway import router as gateway_router
+from backend.routes.safety import router as safety_router
+from backend.routes.monitors import router as monitors_router
 
 # Agent comparison router (feature-gated)
 if config.ENABLE_AGENT_COMPARISON:
@@ -244,6 +267,9 @@ app.include_router(inventory_router)
 app.include_router(statistics_router)
 app.include_router(compliance_router)
 app.include_router(audit_router)
+app.include_router(gateway_router)
+app.include_router(safety_router)
+app.include_router(monitors_router)
 if config.ENABLE_AGENT_COMPARISON:
     app.include_router(agent_router)
 

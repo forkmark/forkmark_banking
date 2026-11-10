@@ -43,8 +43,17 @@ CBUAE model governance operates under two core regulatory instruments:
 | Human Oversight & Rationales   | core/store_impl/audit.py & decisions: Expert sign-off, Arabic   |
 | (AI Guidance Note Section 7)   | reviewer rationale NLP tokenization, and confidence auditing.   |
 +--------------------------------------------------------------------------------------------------+
-| Validation & Ongoing Monitoring| core/statistical_analyzer.py: Exact Welch t-test, Wilson score  |
-| (MMS Sections 9, 10.4 & 10.6)  | confidence intervals, Cohen's d effect sizes, Benjamini-Hochberg|
+| Robustness & Safety Suite      | core/safety/: 240-case bilingual red-team corpus, deterministic |
+| (AI Guidance Note & MMS 10.4)  | canary/PII detectors, and stress perturbation engine.           |
++--------------------------------------------------------------------------------------------------+
+| Continuous Drift Monitoring    | core/monitors/: Scheduled canary executions, atomic leases, PSI,|
+| (MMS Section 9 & AI Guidance)  | median divergence, grounding rate, and automated alerts.        |
++--------------------------------------------------------------------------------------------------+
+| Vendor Model Due Diligence     | Native connectors (Jais, Falcon, Azure OpenAI, OpenAI),        |
+| (AI Guidance Note Principle 6) | hardware fingerprinting, and vendor due diligence records.      |
++--------------------------------------------------------------------------------------------------+
+| Validation & Statistical Sound | core/statistical_analyzer.py: Paired t-test with Cohen's d_z,   |
+| (MMS Sections 9, 10.4 & 10.6)  | Wilson score intervals, and Benjamini-Hochberg FDR correction.  |
 +--------------------------------------------------------------------------------------------------+
 | Islamic Banking Governance     | Shari'ah Supervisory Board (SSB) attestation block for          |
 | (Higher Shari'ah Authority)    | Murabaha, Mudarabah, Sukuk, and Ijarah Islamic finance models.  |
@@ -75,24 +84,28 @@ export FM_REDIS_URL_ME_CENTRAL="redis://cache.uae.internal:6379/0"
   - If an unrecognized region is passed, the request is rejected with `400 Bad Request`.
   - If a cross-border region is requested (e.g., `X-Region: us-east-1` when configured for `me-central-1`), the middleware enforces the sovereign boundary by rejecting the request with `403 Forbidden` (`Data residency violation`).
   - Permitted requests are stamped with `X-Data-Residency-Region: me-central-1` on all HTTP responses.
-* **Sovereign LLM Guardrail**: Cloud LLM egress to external endpoints (such as `api.openai.com`, Azure OpenAI, OpenRouter, Gemini, Anthropic) is blocked by default in `core/comparator.py` using an allowlist of internal/private hosts. Any off-premise inference requires explicit opt-in via `FM_ALLOW_EXTERNAL_LLM_EGRESS=true`.
+* **Sovereign LLM Gateway & Pre-Socket Egress Policy**: Cloud LLM egress to external endpoints (such as `api.openai.com`, Azure OpenAI, OpenRouter, Gemini, Anthropic) is strictly mediated by `core/llm_gateway.py` with pre-socket egress blocking (`core/egress_policy.py`). When `FM_ALLOW_EXTERNAL_LLM_EGRESS=false` (the default), external HTTP/TCP socket creation is blocked before opening connections. Only internal sovereign hosts (`FM_INTERNAL_LLM_HOSTS`) are permitted.
+* **Continuous Canary Scheduling & Distributed Leases**: Drift monitors execute scheduled canary runs under an atomic distributed lease (preventing duplicate runs across Uvicorn workers and Kubernetes pods). Scheduling is configurable via `FM_MONITOR_SCHEDULER=inprocess` or external cron / runner daemon (`scripts/run_monitors.py`).
+* **Automated Drift Alert Webhooks**: When a continuous monitor transitions to `Alert` or `Changed` state, immediate webhook notifications are dispatched to `FM_ALERT_WEBHOOK_URL` with pre-socket validation.
 
 ---
 
 ## 3. Bilingual Model Validation Memorandum
 
-ForkMark auto-assembles all empirical validation evidence into a structured 9-section (or 10-section for Islamic banking) **Model Validation Memorandum** aligning with MMS Section 10.6 (Reporting of Findings). While the validation memorandum is an internal supervisory validation document, it directly supports licensed financial institutions in fulfilling customer-facing plain-language disclosure under Section 4(b) of the AI Guidance Note by providing the validated empirical basis for Arabic and English explanations:
+ForkMark auto-assembles all empirical validation evidence into a structured 11-section (or 12-section for Islamic banking) **Model Validation Memorandum** aligning with MMS Section 10.6 (Reporting of Findings). While the validation memorandum is an internal supervisory validation document, it directly supports licensed financial institutions in fulfilling customer-facing plain-language disclosure under Section 4(b) of the AI Guidance Note by providing the validated empirical basis for Arabic and English explanations:
 
 1. **Executive Summary / الملخص التنفيذي**: Model metadata, tiering, jurisdiction, and validity period.
-2. **Scope & Methodology / النطاق والمنهجية**: Evaluator suite and statistical sample sizes.
-3. **Statistical Results / نتائج التحليل الإحصائي**: Wilson Score win rates, 95% confidence intervals, and Cohen's $d$ effect sizes.
+2. **Scope & Methodology / النطاق والمنهجية**: Evaluator suite, statistical sample sizes, and a dedicated **Third-Party Model Governance** block (vendor, licence, hosting, region, cross-border status, reported models, and hardware fingerprints).
+3. **Statistical Results / نتائج التحليل الإحصائي**: Wilson Score win rates, 95% confidence intervals, and paired Cohen's $d_z$ effect sizes.
 4. **Bias & Fairness / تقييم التحيّز والإنصاف**: Demographic disparity ratios across nationality and demographic segments (Section 3(c)).
 5. **Numerical Fidelity / التدقيق العددي والمطابقة**: Source-grounded checks against underlying loan agreements, credit policies, and product terms.
-6. **Human Review Summary / المراجعة البشرية**: Reviewer decisions with Arabic keyword theme extraction (e.g. `السياسات الائتمانية`, Section 7).
-7. **Regulatory Mapping / مطابقة المتطلبات التنظيمية**: Mandatory supervisory artifact checklist.
-8. **Findings & Action Plan / الملاحظات وخطة العمل**: High/Medium/Low findings with bilingual recommendations.
-9. **Supervisory Sign-Off / الاعتماد والتوقيع الرقابي**: Formal independent validator attestation block.
-10. **Shari'ah Attestation / اعتماد هيئة الرقابة الشرعية**: (For Islamic banking products) Ruling block for the Internal Shari'ah Supervisory Committee.
+6. **Robustness & Safety / المتانة والسلامة**: Category x language matrix of Attack Success Rates (ASR), 95% Wilson intervals, champion-vs-challenger comparisons, leak detection (canary and PII), and perturbation flip rates.
+7. **Ongoing Monitoring & Drift / المراقبة المستمرة**: Canary execution history, median semantic divergence, grounding pass rates, PSI stability metrics, and unresolved alert tracking.
+8. **Human Review Summary / المراجعة البشرية**: Reviewer decisions with Arabic keyword theme extraction (e.g. `السياسات الائتمانية`, Section 7).
+9. **Regulatory Mapping / مطابقة المتطلبات التنظيمية**: Mandatory supervisory artifact checklist including `robustness_stress_test`, `ongoing_monitoring_report`, and `vendor_due_diligence_record`.
+10. **Findings & Action Plan / الملاحظات وخطة العمل**: High/Medium/Low findings generated from 9 regulatory audit rules with bilingual recommendations.
+11. **Supervisory Sign-Off / الاعتماد والتوقيع الرقابي**: Formal independent validator attestation block.
+12. **Shari'ah Attestation / اعتماد هيئة الرقابة الشرعية**: (For Islamic banking products) Ruling block for the Internal Shari'ah Supervisory Committee.
 
 ### Generating Reports via API or Browser
 

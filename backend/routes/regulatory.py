@@ -120,7 +120,12 @@ def model_coverage(
     present = set(model.present_artifacts)
     coverages: List[FrameworkCoverageResponse] = []
     for framework in model.regulatory_frameworks:
-        required = get_framework_requirements(framework).required_artifacts
+        req_obj = get_framework_requirements(framework)
+        required = list(req_obj.required_artifacts)
+        if (model.provider or "").strip().lower() != "in-house":
+            for va in req_obj.vendor_artifacts:
+                if va not in required:
+                    required.append(va)
         coverages.append(
             FrameworkCoverageResponse(
                 framework=framework.value,

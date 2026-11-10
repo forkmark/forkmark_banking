@@ -172,6 +172,7 @@ class EvalRun:
     # Links this validation run to a governed model in the inventory, so its
     # evidence (comparisons, decisions, evaluator results) rolls up to that model.
     governed_model_id: Optional[str] = None
+    run_kind: str = "ab"
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -191,6 +192,7 @@ class EvalRun:
         r.setdefault("test_set_id", None)
         r.setdefault("total_cases", 0)
         r.setdefault("governed_model_id", None)
+        r.setdefault("run_kind", "ab")
         return cls(**r)
 
 
@@ -315,6 +317,7 @@ class StepOutput:
     trace_id: Optional[str] = None   # OpenTelemetry trace ID
     span_id: Optional[str] = None    # OpenTelemetry span ID
     cost_usd: Optional[float] = None # estimated cost in USD
+    provider_meta: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -330,6 +333,14 @@ class StepOutput:
         r.setdefault("trace_id", None)
         r.setdefault("span_id", None)
         r.setdefault("cost_usd", None)
+        pm = r.get("provider_meta")
+        if isinstance(pm, str):
+            try:
+                r["provider_meta"] = json.loads(pm or "{}")
+            except Exception:
+                r["provider_meta"] = {}
+        elif not isinstance(pm, dict):
+            r["provider_meta"] = {}
         return cls(**r)
 
 

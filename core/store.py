@@ -24,6 +24,10 @@ from core.store_impl.flywheel import FlywheelMixin
 from core.store_impl.collaboration import CollaborationMixin
 from core.store_impl.trajectories import TrajectoriesMixin
 from core.store_impl.audit import AuditMixin
+from core.store_impl.gateway import GatewayMixin
+from core.store_impl.fingerprints import FingerprintsMixin
+from core.store_impl.safety import SafetyMixin
+from core.store_impl.monitors import MonitorsMixin
 
 
 class Database(
@@ -41,6 +45,10 @@ class Database(
         CollaborationMixin,
         TrajectoriesMixin,
         AuditMixin,
+        GatewayMixin,
+        FingerprintsMixin,
+        SafetyMixin,
+        MonitorsMixin,
         DatabaseBase):
     """Forkmark data layer. Assembled from per-domain repository mixins; the
     public API is identical to the previous monolithic core/store.py."""

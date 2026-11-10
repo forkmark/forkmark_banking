@@ -175,72 +175,14 @@ def _semantic_divergence(a: str, b: str) -> Optional[float]:
         return None
 
 
-def _is_internal_host(hostname: str) -> bool:
-    """True if hostname resolves to an on-premise, internal, or loopback network."""
-    if not hostname:
-        return False
-    hostname = hostname.lower().strip()
-
-    # Custom internal hostnames or domain suffixes configured by the bank
-    extra_internal = os.getenv("FM_INTERNAL_LLM_HOSTS", "").lower().split(",")
-    for host in extra_internal:
-        h = host.strip()
-        if h and (hostname == h or hostname.endswith(f".{h}")):
-            return True
-
-    # Standard loopback identifiers
-    if hostname in ("localhost", "localhost.localdomain"):
-        return True
-
-    # Single-label names without dots (Docker / Kubernetes internal service names, e.g. 'ollama', 'vllm')
-    if "." not in hostname:
-        return True
-
-    # Private internal domain suffixes
-    internal_suffixes = (
-        ".local",
-        ".internal",
-        ".cluster.local",
-        ".corp",
-        ".lan",
-        ".home",
-        ".arpa",
-        ".svc",
-        ".svc.cluster.local",
-    )
-    if any(hostname.endswith(suffix) for suffix in internal_suffixes):
-        return True
-
-    # IP address check: RFC 1918 private subnets, loopback, or link-local
-    try:
-        ip = ipaddress.ip_address(hostname)
-        return ip.is_private or ip.is_loopback or ip.is_link_local
-    except ValueError:
-        pass
-
-    return False
-
-
-def _is_external_endpoint(base_url: str) -> bool:
-    """True if endpoint routes outside internal/private networks (i.e. public cloud).
-
-    Uses a strict allowlist of internal/private hosts (localhost, single-label K8s services,
-    RFC 1918 private IPs, .internal, .cluster.local, etc.). Any other public endpoint
-    (e.g., api.openai.com, api.anthropic.com, *.openai.azure.com, openrouter.ai,
-    generativelanguage.googleapis.com) is treated as external cloud egress and refused
-    unless FM_ALLOW_EXTERNAL_LLM_EGRESS=true.
-    """
-    if not base_url:
-        return True
-    try:
-        target = base_url if "://" in base_url else f"http://{base_url}"
-        parsed = urlparse(target)
-        hostname = parsed.hostname
-        if not hostname:
-            return True
-        return not _is_internal_host(hostname)
-    except Exception:
-        return True
+from core.egress_policy import (
+    _is_internal_host,
+    _is_external_endpoint,
+    is_internal_host,
+    is_external_endpoint,
+    EgressBlocked,
+    check_egress,
+)
 
 
 def _get_provider_credentials() -> tuple[Optional[str], str]:
@@ -284,35 +226,17 @@ def _get_provider_credentials() -> tuple[Optional[str], str]:
 # ── 3. OpenAI embedding scorer ────────────────────────────────────────────────
 
 def _openai_divergence(a: str, b: str) -> Optional[float]:
-    """Cosine divergence via OpenAI embeddings API. None if key missing."""
-    api_key, base_url = _get_provider_credentials()
-    if not api_key:
-        return None
-    model = os.getenv("FM_EMBED_MODEL", "text-embedding-3-small")
-    if "embeddings" in base_url:
-        embed_url = base_url
-    elif "azure.com" in base_url.lower():
-        embed_url = base_url if base_url.endswith("/embeddings") else f"{base_url}/embeddings"
-    elif base_url.endswith("/v1"):
-        embed_url = f"{base_url}/embeddings"
-    else:
-        embed_url = f"{base_url}/v1/embeddings"
+    """Cosine divergence via OpenAI embeddings API. None if key missing or egress blocked."""
     try:
-        client = _get_httpx_client()
-        resp = client.post(
-            embed_url,
-            json={"input": [a or " ", b or " "], "model": model},
-            headers={"Authorization": f"Bearer {api_key}",
-                     "Content-Type": "application/json"},
-        )
-        resp.raise_for_status()
-        data = resp.json()["data"]
-        ea   = data[0]["embedding"]
-        eb   = data[1]["embedding"]
+        from core.llm_gateway import gateway
+        model = os.getenv("FM_EMBED_MODEL", "text-embedding-3-small")
+        embeddings = gateway.embed(None, [a or " ", b or " "], purpose="embedding", model=model)
+        ea = embeddings[0]
+        eb = embeddings[1]
 
-        dot  = sum(x * y for x, y in zip(ea, eb))
-        na   = math.sqrt(sum(x * x for x in ea))
-        nb   = math.sqrt(sum(y * y for y in eb))
+        dot = sum(x * y for x, y in zip(ea, eb))
+        na = math.sqrt(sum(x * x for x in ea))
+        nb = math.sqrt(sum(y * y for y in eb))
         if na == 0 or nb == 0:
             return 0.0
         cosine = dot / (na * nb)
@@ -344,42 +268,24 @@ No explanation. No other text."""
 
 
 def _llm_judge_divergence(a: str, b: str) -> Optional[float]:
-    """G-Eval style LLM-as-judge divergence. None if API key missing."""
-    api_key, base_url = _get_provider_credentials()
-    model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
-
-    if not api_key:
-        return None
-
-    # Truncate long outputs to control cost (~$0.001 per comparison at gpt-4o-mini rates)
-    a_trunc = a[:2000] + ("…" if len(a) > 2000 else "")
-    b_trunc = b[:2000] + ("…" if len(b) > 2000 else "")
-    prompt  = _JUDGE_PROMPT.format(output_a=a_trunc, output_b=b_trunc)
-
-    if "chat/completions" in base_url:
-        chat_url = base_url
-    elif "azure.com" in base_url.lower():
-        chat_url = base_url if base_url.endswith("/chat/completions") else f"{base_url}/chat/completions"
-    elif base_url.endswith("/v1"):
-        chat_url = f"{base_url}/chat/completions"
-    else:
-        chat_url = f"{base_url}/v1/chat/completions"
+    """G-Eval style LLM-as-judge divergence via ModelGateway."""
     try:
-        client = _get_httpx_client()
-        resp = client.post(
-            chat_url,
-            json={
-                "model":       model,
-                "messages":    [{"role": "user", "content": prompt}],
-                "temperature": 0.0,   # deterministic scoring
-                "max_tokens":  10,
-            },
-            headers={"Authorization": f"Bearer {api_key}",
-                     "Content-Type": "application/json"},
-            timeout=30.0,
+        from core.llm_gateway import gateway
+        model = os.getenv("FM_JUDGE_MODEL", "gpt-4o-mini")
+
+        a_trunc = a[:2000] + ("…" if len(a) > 2000 else "")
+        b_trunc = b[:2000] + ("…" if len(b) > 2000 else "")
+        prompt = _JUDGE_PROMPT.format(output_a=a_trunc, output_b=b_trunc)
+
+        resp = gateway.chat(
+            None,
+            [{"role": "user", "content": prompt}],
+            model=model,
+            temperature=0.0,
+            max_tokens=10,
+            purpose="judge",
         )
-        resp.raise_for_status()
-        raw   = resp.json()["choices"][0]["message"]["content"].strip()
+        raw = resp.text.strip()
         score = float(raw.split()[0].rstrip(",.:;"))
         return round(min(max(score, 0.0), 1.0), 4)
     except Exception:

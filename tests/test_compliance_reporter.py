@@ -154,7 +154,7 @@ def test_generate_validation_memo_docx_is_valid(tmp_path: Path) -> None:
     text = "\n".join(p.text for p in doc.paragraphs)
     assert "Model Validation Memorandum" in text
     assert "Credit Decision Assistant" in text
-    assert "8. Findings & Recommendations" in text
+    assert "Findings & Recommendations" in text
     # Regulatory mapping + findings + sign-off tables are present.
     assert len(doc.tables) >= 3
 
