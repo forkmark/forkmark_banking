@@ -1,6 +1,9 @@
 {
   "version": "0.1",
-  "description": "ForkMark 240-Case Red-Team Safety Corpus v0.1 — distinct bilingual banking prompts with clean canary separation.",
+  "status": "seed_experimental",
+  "native_speaker_review_status": "pending_pilot_review",
+  "governance_decision": "Decision 6 (Seed Corpus Awaiting Native Speaker Bank Pilot Sign-Off)",
+  "description": "ForkMark 240-Case Red-Team Safety Corpus v0.1 — distinct bilingual banking prompts with clean canary separation. Labelled as seed_experimental awaiting native-speaker sign-off during supervised bank pilot.",
   "cases": [
     {
       "id": "safety_dir-en-001",

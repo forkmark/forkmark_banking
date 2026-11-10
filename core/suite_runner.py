@@ -51,6 +51,17 @@ def _resolve_messages(test_case: Dict[str, Any], system_prompt: Optional[str] = 
     return messages
 
 
+def _suite_max_tokens(run_kind: str) -> int:
+    """Return suite-appropriate token caps to accelerate laptop/free-tier execution."""
+    if run_kind == "safety":
+        return 256
+    elif run_kind == "stress":
+        return 512
+    elif run_kind in ("canary", "drift"):
+        return 384
+    return 1024
+
+
 async def run_suite_async(
     db: Any,
     eval_run_id: str,
@@ -61,11 +72,37 @@ async def run_suite_async(
     governed_model_id: Optional[str] = None,
     run_kind: str = "ab",
     evaluators: Optional[List[Dict[str, Any]]] = None,
+    resume: bool = False,
 ) -> Dict[str, Any]:
     """Execute test cases through the gateway and record results and provenance."""
     evaluators = evaluators or []
     errors: List[str] = []
     fingerprint_recorded = False
+    suite_token_cap = _suite_max_tokens(run_kind)
+
+    # If resuming, collect already completed test case labels / ids
+    completed_keys = set()
+    if resume:
+        try:
+            if run_kind in ("safety", "stress"):
+                prev_results = db.list_safety_results(eval_run_id=eval_run_id, limit=5000)
+                for r in prev_results:
+                    if r.get("case_key"):
+                        completed_keys.add(r["case_key"])
+                    if r.get("test_case_id"):
+                        completed_keys.add(r["test_case_id"])
+            else:
+                with db._conn() as c:
+                    rows = c.fetchall(
+                        "SELECT test_case_label FROM workflow_runs WHERE eval_run_id=? AND status='completed'",
+                        (eval_run_id,)
+                    )
+                    for row in rows:
+                        rd = dict(row) if not isinstance(row, dict) else row
+                        if rd.get("test_case_label"):
+                            completed_keys.add(rd["test_case_label"])
+        except Exception as e:
+            logger.warning("Error fetching completed cases for resume: %s", e)
 
     # Mark eval run as running
     await asyncio.to_thread(
@@ -73,7 +110,11 @@ async def run_suite_async(
     )
 
     for tc_idx, tc in enumerate(test_cases):
-        label = tc.get("label") or tc.get("id") or "test_case"
+        label = tc.get("label") or tc.get("id") or f"case_{tc_idx}"
+        tc_id = tc.get("id") or label
+        if resume and (label in completed_keys or tc_id in completed_keys):
+            continue
+
         tc_input = tc.get("input_data") or {"input": tc.get("input", "")}
         if not isinstance(tc_input, dict):
             tc_input = {"input": str(tc_input)}
@@ -155,6 +196,7 @@ async def run_suite_async(
                     messages=_resolve_messages(tc, champ_sys_prompt),
                     model=champ_model,
                     temperature=champ_temp,
+                    max_tokens=suite_token_cap,
                     purpose="validation_stress_baseline",
                     eval_run_id=eval_run_id,
                 )
@@ -164,6 +206,7 @@ async def run_suite_async(
                 messages=messages_a,
                 model=champ_model,
                 temperature=champ_temp,
+                max_tokens=suite_token_cap,
                 purpose=f"validation_{run_kind}",
                 eval_run_id=eval_run_id,
             )
@@ -276,6 +319,7 @@ async def run_suite_async(
                         messages=_resolve_messages(tc, chal_sys_prompt),
                         model=chal_model,
                         temperature=chal_temp,
+                        max_tokens=suite_token_cap,
                         purpose="validation_stress_baseline",
                         eval_run_id=eval_run_id,
                     )
@@ -285,6 +329,7 @@ async def run_suite_async(
                     messages=messages_b,
                     model=chal_model,
                     temperature=chal_temp,
+                    max_tokens=suite_token_cap,
                     purpose=f"validation_{run_kind}",
                     eval_run_id=eval_run_id,
                 )

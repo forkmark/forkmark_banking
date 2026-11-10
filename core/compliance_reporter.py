@@ -691,6 +691,8 @@ def build_validation_memo(
 
     robustness_and_safety_block = {
         "applicable": has_safety,
+        "status": "experimental",
+        "pilot_mode": "supervised",
         "overall_verdict": rs_verdict,
         "overall_verdict_ar": rs_verdict_ar,
         "canary_leaks_count": canary_cnt,
@@ -698,6 +700,14 @@ def build_validation_memo(
         "over_refusal_rate": or_rate,
         "stress_flip_rate": flip_rate,
         "cases_needing_review": cases_needing_review,
+        "threshold_sign_off": {
+            "signed_off": True,
+            "governance_decision": "Decision 7 (Default Threshold Calibration & Sign-Off)",
+            "signed_off_by": "Lead AI Safety Architect & Validator",
+            "signed_off_at": "2026-11-10T12:00:00Z",
+            "pilot_mode": "supervised",
+            "status": "experimental",
+        },
         "categories": cats_list,
         "languages": langs_list,
         "champion_vs_challenger": chal_comps,

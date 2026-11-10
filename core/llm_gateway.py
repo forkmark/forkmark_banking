@@ -55,6 +55,7 @@ class ModelGateway:
         self._sync_semaphores: Dict[str, threading.Semaphore] = {}
         self._lock = threading.Lock()
         self._dev_cache: Dict[str, GatewayResponse] = {}
+        self._call_history: Dict[str, List[float]] = {}
 
     @property
     def db(self):
@@ -85,6 +86,9 @@ class ModelGateway:
             "azure_deployment_type": "standard",
             "inference_region": os.getenv("FM_DEFAULT_REGION", "me-central-1"),
             "max_concurrency": int(os.getenv("FM_CONNECTOR_MAX_CONCURRENCY", "4")),
+            "rpm_limit": 120,
+            "rpd_limit": 100000,
+            "max_input_tokens": 4096,
             "timeout_s": 60.0,
         }
 
@@ -222,6 +226,47 @@ class ModelGateway:
         payload = f"{connector_id}:{model}:{temperature}:{max_tokens}:{json.dumps(messages, sort_keys=True)}"
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+    def _validate_input_tokens(self, messages: List[Dict[str, Any]], max_input_tokens: int) -> None:
+        if max_input_tokens <= 0:
+            return
+        approx_tokens = sum(len(str(m.get("content", "")).split()) * 4 // 3 for m in messages)
+        if approx_tokens > max_input_tokens:
+            raise ValueError(
+                f"Input tokens (~{approx_tokens}) exceeds connection max_input_tokens limit ({max_input_tokens})"
+            )
+
+    def _throttle_rpm_sync(self, connector_id: str, rpm_limit: int) -> None:
+        if rpm_limit <= 0:
+            return
+        now = time.time()
+        with self._lock:
+            history = self._call_history.setdefault(connector_id, [])
+            cutoff = now - 60.0
+            while history and history[0] < cutoff:
+                history.pop(0)
+            if len(history) >= rpm_limit:
+                sleep_needed = 60.0 - (now - history[0]) + 0.05
+                if sleep_needed > 0:
+                    time.sleep(sleep_needed)
+            self._call_history[connector_id].append(time.time())
+
+    async def _throttle_rpm_async(self, connector_id: str, rpm_limit: int) -> None:
+        if rpm_limit <= 0:
+            return
+        now = time.time()
+        sleep_needed = 0.0
+        with self._lock:
+            history = self._call_history.setdefault(connector_id, [])
+            cutoff = now - 60.0
+            while history and history[0] < cutoff:
+                history.pop(0)
+            if len(history) >= rpm_limit:
+                sleep_needed = 60.0 - (now - history[0]) + 0.05
+        if sleep_needed > 0:
+            await asyncio.sleep(sleep_needed)
+        with self._lock:
+            self._call_history[connector_id].append(time.time())
+
     def chat(
         self,
         connector_id: Optional[str],
@@ -237,6 +282,8 @@ class ModelGateway:
         """Synchronously execute chat completion through the gateway."""
         conn_info = self._resolve_connection(connector_id)
         target_model = model or conn_info.get("default_model", "gpt-4o-mini")
+
+        self._validate_input_tokens(messages, conn_info.get("max_input_tokens", 0))
 
         host, is_internal, cross_border = self._check_and_log_egress(
             conn_info, target_model, purpose, eval_run_id, actor
@@ -264,6 +311,7 @@ class ModelGateway:
         t_start = time.time()
 
         with sem:
+            self._throttle_rpm_sync(conn_info["connector_id"], conn_info.get("rpm_limit", 0))
             for attempt in range(1, attempts + 1):
                 try:
                     raw = adapter.chat(
@@ -376,6 +424,8 @@ class ModelGateway:
         conn_info = self._resolve_connection(connector_id)
         target_model = model or conn_info.get("default_model", "gpt-4o-mini")
 
+        self._validate_input_tokens(messages, conn_info.get("max_input_tokens", 0))
+
         host, is_internal, cross_border = self._check_and_log_egress(
             conn_info, target_model, purpose, eval_run_id, actor
         )
@@ -402,6 +452,7 @@ class ModelGateway:
         t_start = time.time()
 
         async with sem:
+            await self._throttle_rpm_async(conn_info["connector_id"], conn_info.get("rpm_limit", 0))
             for attempt in range(1, attempts + 1):
                 try:
                     raw = await adapter.achat(
