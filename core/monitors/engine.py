@@ -213,7 +213,9 @@ async def send_alert_webhook(url: str, payload: Dict[str, Any]) -> None:
     try:
         check_egress(url)
     except Exception as exc:
-        logger.warning("Monitor webhook egress blocked by policy for host '%s': %s", hostname, exc)
+        from urllib.parse import urlparse
+        host = urlparse(url).hostname or url
+        logger.warning("Monitor webhook egress blocked by policy for host '%s': %s", host, exc)
         return
 
     try:
@@ -532,8 +534,8 @@ async def execute_monitor_run(
         })
 
         # Atomic mutation: state, next_validation_due if Changed, and supervisory audit log
-        today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        next_due = today_date if state == "Changed" else None
+        now_utc = datetime.now(timezone.utc)
+        next_due = now_utc.isoformat() if state == "Changed" else None
         audit_action = "model.vendor_change_detected" if state == "Changed" else (
             "monitor.alert" if state in ("Alert", "Watch") else "monitor.run_completed"
         )

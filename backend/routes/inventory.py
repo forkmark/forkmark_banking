@@ -402,6 +402,19 @@ async def trigger_validation_runs(
         _BACKGROUND_TASKS.add(task)
         task.add_done_callback(_BACKGROUND_TASKS.discard)
 
+    actor, role = principal(x_api_key)
+    try:
+        db.add_audit_log(
+            action="model.validation_run_triggered",
+            actor=actor,
+            actor_role=role,
+            resource_type="governed_model",
+            resource_id=model_id,
+            detail={"suites": suites, "eval_run_ids": eval_run_ids, "test_set_id": body.test_set_id},
+        )
+    except Exception as exc:
+        logger.warning("Failed to record audit log for validation run: %s", exc)
+
     return ValidationRunResponse(eval_run_ids=eval_run_ids)
 
 

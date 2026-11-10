@@ -75,13 +75,18 @@ class MonitorsMixin:
         res["enabled"] = bool(res.get("enabled"))
         return res
 
-    def list_monitors(self, governed_model_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """List monitors, optionally filtered by governed_model_id."""
+    def list_monitors(
+        self,
+        governed_model_id: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """List monitors, optionally filtered by governed_model_id (or alias model_id)."""
+        target_model_id = governed_model_id or model_id
         with self._read_conn() as c:
-            if governed_model_id:
+            if target_model_id:
                 rows = c.fetchall(
                     "SELECT * FROM monitors WHERE governed_model_id = ? ORDER BY created_at DESC",
-                    (governed_model_id,),
+                    (target_model_id,),
                 )
             else:
                 rows = c.fetchall("SELECT * FROM monitors ORDER BY created_at DESC")

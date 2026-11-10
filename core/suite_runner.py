@@ -72,7 +72,7 @@ async def run_suite_async(
         db.update_eval_run_status, eval_run_id, EvalRunStatus.RUNNING, total_cases=len(test_cases)
     )
 
-    for tc in test_cases:
+    for tc_idx, tc in enumerate(test_cases):
         label = tc.get("label") or tc.get("id") or "test_case"
         tc_input = tc.get("input_data") or {"input": tc.get("input", "")}
         if not isinstance(tc_input, dict):
@@ -117,7 +117,27 @@ async def run_suite_async(
                 provider_id=chal_conn_id,
             )
 
-        messages_a = _resolve_messages(tc, champ_sys_prompt)
+        is_stress = (run_kind == "stress")
+        pert_variant = None
+        if is_stress:
+            from core.safety.stress_engine import generate_stress_variants
+            user_text = (
+                tc.get("input")
+                or (tc.get("input_data", {}).get("input") if isinstance(tc.get("input_data"), dict) else "")
+                or tc.get("prompt")
+                or ""
+            )
+            if not user_text and isinstance(tc.get("input_data"), str):
+                user_text = tc["input_data"]
+            variants = generate_stress_variants(user_text, seed=tc_idx + 1)
+            pert_variant = variants[1 + (tc_idx % (len(variants) - 1))]
+            pert_tc = dict(tc)
+            pert_tc["input"] = pert_variant["text"]
+            if isinstance(pert_tc.get("input_data"), dict):
+                pert_tc["input_data"] = dict(pert_tc["input_data"], input=pert_variant["text"])
+            messages_a = _resolve_messages(pert_tc, champ_sys_prompt)
+        else:
+            messages_a = _resolve_messages(tc, champ_sys_prompt)
 
         # 1. Execute Champion
         try:
@@ -169,8 +189,17 @@ async def run_suite_async(
             # Evaluate safety / stress detectors if applicable
             if run_kind in ("safety", "stress"):
                 from core.safety.detectors import evaluate_safety_case
-                case_dict = tc if isinstance(tc, dict) else getattr(tc, "input_data", {})
+                case_dict = dict(tc.get("input_data")) if isinstance(tc.get("input_data"), dict) else {}
+                for k, v in tc.items():
+                    if k not in case_dict:
+                        case_dict[k] = v
                 eval_res = evaluate_safety_case(case_dict, resp_a.text)
+                if is_stress and pert_variant:
+                    is_flipped = (eval_res["verdict"] == "fail")
+                    eval_res["detectors"]["stress"] = {
+                        "flipped": is_flipped,
+                        "variant": pert_variant["variant_type"],
+                    }
                 await asyncio.to_thread(
                     db.save_safety_result,
                     eval_run_id=eval_run_id,
@@ -193,7 +222,14 @@ async def run_suite_async(
 
         # 2. Execute Challenger if present
         if challenger and branch_b_obj:
-            messages_b = _resolve_messages(tc, chal_sys_prompt)
+            if is_stress and pert_variant:
+                pert_tc_b = dict(tc)
+                pert_tc_b["input"] = pert_variant["text"]
+                if isinstance(pert_tc_b.get("input_data"), dict):
+                    pert_tc_b["input_data"] = dict(pert_tc_b["input_data"], input=pert_variant["text"])
+                messages_b = _resolve_messages(pert_tc_b, chal_sys_prompt)
+            else:
+                messages_b = _resolve_messages(tc, chal_sys_prompt)
             try:
                 resp_b = await gateway.achat(
                     connector_id=chal_conn_id,
@@ -227,8 +263,17 @@ async def run_suite_async(
 
                 if run_kind in ("safety", "stress"):
                     from core.safety.detectors import evaluate_safety_case
-                    case_dict = tc if isinstance(tc, dict) else getattr(tc, "input_data", {})
+                    case_dict = dict(tc.get("input_data")) if isinstance(tc.get("input_data"), dict) else {}
+                    for k, v in tc.items():
+                        if k not in case_dict:
+                            case_dict[k] = v
                     eval_res_b = evaluate_safety_case(case_dict, resp_b.text)
+                    if is_stress and pert_variant:
+                        is_flipped_b = (eval_res_b["verdict"] == "fail")
+                        eval_res_b["detectors"]["stress"] = {
+                            "flipped": is_flipped_b,
+                            "variant": pert_variant["variant_type"],
+                        }
                     await asyncio.to_thread(
                         db.save_safety_result,
                         eval_run_id=eval_run_id,
@@ -274,27 +319,37 @@ async def run_suite_async(
 
         await asyncio.to_thread(db.complete_run, run.id)
 
-    status = EvalRunStatus.COMPLETED if len(errors) < len(test_cases) else EvalRunStatus.FAILED
+    error_count = len(errors)
+    total_count = len(test_cases)
+    error_rate = error_count / max(1, total_count)
+    if error_count == 0:
+        status = EvalRunStatus.COMPLETED
+    elif error_rate < 0.5:
+        status = EvalRunStatus.COMPLETED_WITH_ERRORS
+    else:
+        status = EvalRunStatus.FAILED
+
     await asyncio.to_thread(
         db.update_eval_run_status, eval_run_id, status, total_cases=len(test_cases)
     )
 
     if governed_model_id and run_kind in ("safety", "stress"):
-        try:
-            from core.model_inventory import ModelInventory
-            inv = ModelInventory(db)
-            m = inv.get_model(governed_model_id)
-            if m:
-                artifacts = set(m.present_artifacts)
-                if "robustness_stress_test" not in artifacts:
-                    artifacts.add("robustness_stress_test")
-                    inv.update_model(
-                        governed_model_id,
-                        present_artifacts=list(artifacts),
-                        audit_actor="system",
-                        audit_role="system",
-                    )
-        except Exception as e:
-            logger.warning("Failed to update model present_artifacts: %s", e)
+        if error_rate < 0.05:
+            try:
+                from core.model_inventory import ModelInventory
+                inv = ModelInventory(db)
+                m = inv.get_model(governed_model_id)
+                if m:
+                    artifacts = set(m.present_artifacts)
+                    if "robustness_stress_test" not in artifacts:
+                        artifacts.add("robustness_stress_test")
+                        inv.update_model(
+                            governed_model_id,
+                            present_artifacts=list(artifacts),
+                            audit_actor="system",
+                            audit_role="system",
+                        )
+            except Exception as e:
+                logger.warning("Failed to update model present_artifacts: %s", e)
 
     return {"eval_run_id": eval_run_id, "status": status.value, "errors": errors}

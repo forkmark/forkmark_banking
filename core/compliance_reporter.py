@@ -101,10 +101,14 @@ _CATEGORY_AR = {
 _MONITOR_STATE_AR = {
     "PASS": "مطابق",
     "pass": "مطابق",
+    "OK": "مطابق",
+    "ok": "مطابق",
     "WATCH": "مراقبة",
     "watch": "مراقبة",
+    "Watch": "مراقبة",
     "ALERT": "تنبيه",
     "alert": "تنبيه",
+    "Alert": "تنبيه",
     "CHANGED": "تغيير مكتشف",
     "changed": "تغيير مكتشف",
     "Changed": "تغيير مكتشف",
@@ -308,18 +312,22 @@ def _generate_findings(
         )
 
     # Revalidation currency.
-    if model.next_validation_due is not None and model.next_validation_due < _now():
-        due = model.next_validation_due.date().isoformat()
-        findings.append(
-            Finding(
-                "MEDIUM",
-                "Revalidation",
-                f"Model is overdue for revalidation (due {due}).",
-                "Schedule and complete a full revalidation.",
-                f"تجاوز النموذج الموعد المحدد لإعادة التحقق (المستحق بتاريخ {due}).",
-                "جدولة وإتمام عملية إعادة تحقق كاملة.",
+    if model.next_validation_due is not None:
+        due_dt = model.next_validation_due
+        if due_dt.tzinfo is None:
+            due_dt = due_dt.replace(tzinfo=timezone.utc)
+        if due_dt < _now():
+            due = due_dt.date().isoformat()
+            findings.append(
+                Finding(
+                    "MEDIUM",
+                    "Revalidation",
+                    f"Model is overdue for revalidation (due {due}).",
+                    "Schedule and complete a full revalidation.",
+                    f"تجاوز النموذج الموعد المحدد لإعادة التحقق (المستحق بتاريخ {due}).",
+                    "جدولة وإتمام عملية إعادة تحقق كاملة.",
+                )
             )
-        )
 
     # ── Milestone 5 / CBUAE AI Guidance Audit Rules ──────────────────────────
 
@@ -385,6 +393,7 @@ def _generate_findings(
         model.status.value.lower() == "changed"
         or evidence.provenance.get("vendor_changed_unvalidated") is True
         or evidence.provenance.get("version_changed") is True
+        or any(str(r.get("state", "")).lower() == "changed" or str(r.get("status", "")).lower() == "changed" for r in evidence.monitoring_runs)
     )
     if is_third_party and vendor_changed:
         findings.append(
@@ -401,7 +410,7 @@ def _generate_findings(
     # Rule 5 (HIGH): A monitor alert in the period with no recorded resolution.
     unresolved_alerts = [
         r for r in evidence.monitoring_runs
-        if str(r.get("status", "")).lower() == "alert"
+        if (str(r.get("state", "")).lower() == "alert" or str(r.get("status", "")).lower() == "alert")
         and str(r.get("resolution_status", "")).lower() != "resolved"
         and not r.get("resolved_at")
     ]
@@ -496,7 +505,7 @@ def _generate_findings(
     # Rule 9 (LOW): A monitor in Watch state at memo time.
     watch_runs = [
         r for r in evidence.monitoring_runs
-        if str(r.get("status", "")).lower() == "watch"
+        if str(r.get("state", "")).lower() == "watch" or str(r.get("status", "")).lower() == "watch"
     ]
     if watch_runs:
         findings.append(
@@ -578,10 +587,10 @@ def build_validation_memo(
     # ── Section 2: Scope & Third-Party Model block ──
     prov = evidence.provenance or {}
     is_tp = (model.provider or "").strip().lower() != "in-house"
-    tp_vendor = prov.get("vendor") or model.provider
-    tp_licence = prov.get("licence", "Proprietary/Commercial")
-    tp_region = prov.get("inference_region", "me-central-1")
-    tp_hosting = prov.get("hosting") or ("Sovereign Cloud" if "uae" in tp_region.lower() or tp_region.lower().startswith("me-") else "Cloud")
+    tp_vendor = prov.get("vendor") or model.provider or "not recorded"
+    tp_licence = prov.get("licence") or "not recorded"
+    tp_region = prov.get("inference_region") or "not recorded"
+    tp_hosting = prov.get("hosting") or "not recorded"
     tp_cross_border = bool(prov.get("is_cross_border", False))
     tp_models_reported = list(prov.get("models_reported") or [])
     tp_fingerprints = list(prov.get("fingerprints") or [])
@@ -688,10 +697,10 @@ def build_validation_memo(
     has_mon = bool(evidence.monitoring_runs)
     runs_list: list[dict[str, Any]] = []
     for r in evidence.monitoring_runs:
-        st = r.get("status", "pass")
+        st = r.get("state") or r.get("status", "pass")
         runs_list.append({
             "run_id": r.get("id", ""),
-            "date": r.get("created_at", ""),
+            "date": r.get("started_at") or r.get("created_at", ""),
             "state": st,
             "state_ar": _MONITOR_STATE_AR.get(st, st),
             "median_divergence": r.get("divergence_median"),
@@ -704,11 +713,15 @@ def build_validation_memo(
             "resolved_at": r.get("resolved_at"),
         })
 
-    latest_st = evidence.monitoring_runs[-1].get("status", "unmonitored") if evidence.monitoring_runs else "unmonitored"
-    alerts_cnt = len([r for r in evidence.monitoring_runs if str(r.get("status", "")).lower() == "alert"])
+    latest_st = (
+        evidence.monitoring_runs[-1].get("state")
+        or evidence.monitoring_runs[-1].get("status", "unmonitored")
+        if evidence.monitoring_runs else "unmonitored"
+    )
+    alerts_cnt = len([r for r in evidence.monitoring_runs if str(r.get("state") or r.get("status", "")).lower() == "alert"])
     unres_cnt = len([
         r for r in evidence.monitoring_runs
-        if str(r.get("status", "")).lower() == "alert"
+        if str(r.get("state") or r.get("status", "")).lower() == "alert"
         and str(r.get("resolution_status", "")).lower() != "resolved"
         and not r.get("resolved_at")
     ])

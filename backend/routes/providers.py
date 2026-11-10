@@ -231,23 +231,6 @@ def test_provider(provider_id: str, _auth=Depends(ui_write_auth)):
             "arabic_ok": False,
         }
 
-    import httpx
-    from unittest.mock import MagicMock
-    # Compatibility with legacy tests that specifically patch httpx.get
-    if isinstance(getattr(httpx, "get", None), MagicMock):
-        base = creds["base_url"].rstrip("/") if creds.get("base_url") else ""
-        url = (base or "https://api.openai.com/v1") + "/models"
-        resp = httpx.get(url, headers={"Authorization": f"Bearer {creds['api_key']}"}, timeout=15)
-        if resp.status_code < 400:
-            return {
-                "ok": True,
-                "message": "Connection successful (10ms)",
-                "latency_ms": 10,
-                "model_reported": "gpt-4o",
-                "system_fingerprint": "",
-                "arabic_ok": True,
-            }
-
     from core.llm_gateway import gateway
     from core.egress_policy import EgressBlocked
 

@@ -97,7 +97,7 @@ Open **http://localhost:7700**, go to **API Keys / Settings**, and paste the ret
 
 ## What is built
 
-The CBUAE's February 2026 AI guidance sets eight testable obligations for licensed financial institutions (LFIs). All eight are fully addressed by production-grade capabilities that compute out of the box in ForkMark:
+The CBUAE's February 2026 AI guidance sets eight testable obligations for licensed financial institutions (LFIs). Capabilities addressing these are built or undergoing hardening in ForkMark:
 
 | Obligation under the Feb 2026 guidance | ForkMark | Status |
 |---|---|---|
@@ -107,8 +107,8 @@ The CBUAE's February 2026 AI guidance sets eight testable obligations for licens
 | Meaningful human oversight and challenge | Human review capture with rationale and attribution | **Built** |
 | Data provenance and audit trails | Hash-chained, tamper-evident audit log (verifiable via `/audit/verify`) with role-based access control | **Built** |
 | Disclosure in Arabic and English | Fully bilingual 11-section validation memorandum (every section in Arabic and English) | **Built** |
-| Stress-testing and continuous monitoring | 240-case bilingual red-team safety suite, perturbation engine, and continuous drift monitors | **Built** |
-| Vendor AI held to the in-house standard | Native connectors for sovereign (Jais, Falcon) and commercial models with hardware fingerprinting | **Built** |
+| Stress-testing and continuous monitoring | 240-case bilingual red-team safety suite, perturbation engine, and continuous drift monitors | *In progress* |
+| Vendor AI held to the in-house standard | Native connectors for sovereign (Jais, Falcon) and commercial models with hardware fingerprinting | *In progress* |
 
 Vendor models can still be evaluated today by streaming their outputs in through the SDK; what is missing is first-class connectors. See `examples/jais_banking_demo/` and `examples/adverse_action_demo/` for a worked end-to-end validation on an Arabic retail-banking assistant.
 

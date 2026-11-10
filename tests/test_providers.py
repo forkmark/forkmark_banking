@@ -320,20 +320,22 @@ class TestProviderConnection:
         assert r2.json()["ok"] is False
         assert "No API key" in r2.json()["message"]
 
-    @patch("httpx.get")
-    def test_test_success(self, mock_get, client):
-        r = client.post("/api/providers", json={
-            "name": "TestConn", "api_key": "sk-test",
-        })
-        pid = r.json()["id"]
+    def test_test_success(self, client):
+        import core.llm_gateway as gw
+        from tests.fixtures.mock_llm import MockLLMHandler, create_mock_transport
+        transport, _ = create_mock_transport(MockLLMHandler(default_reply="مرحبا، هذا رد اختباري."))
+        gw.gateway.set_transport(transport)
+        try:
+            r = client.post("/api/providers", json={
+                "name": "TestConn", "api_key": "sk-test", "base_url": "http://127.0.0.1:8080/v1",
+            })
+            pid = r.json()["id"]
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_get.return_value = mock_resp
-
-        r2 = client.post(f"/api/providers/{pid}/test")
-        assert r2.status_code == 200
-        assert r2.json()["ok"] is True
+            r2 = client.post(f"/api/providers/{pid}/test")
+            assert r2.status_code == 200
+            assert r2.json()["ok"] is True
+        finally:
+            gw.gateway.set_transport(None)
 
 
 # ── Runner Integration ──────────────────────────────────────────────────────

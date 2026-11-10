@@ -56,6 +56,7 @@ class SafetyRunSummaryResponse(BaseModel):
     breaches: List[str]
     thresholds_applied: Dict[str, Any]
     total_results: int
+    stress_flip_rate: float = 0.0
 
 
 @router.post(
@@ -126,6 +127,15 @@ def install_safety_corpus(
     db.bulk_add_test_cases(ts.id, tc_batch)
     db.freeze_test_set(ts.id)
 
+    db.add_audit_log(
+        action="safety_corpus.install",
+        actor=_actor,
+        actor_role=role,
+        resource_type="test_set",
+        resource_id=ts.id,
+        detail={"name": ts.name, "case_count": len(cases), "version": version_str},
+    )
+
     return SafetyCorpusInstallResponse(
         test_set_id=ts.id,
         name=ts.name,
@@ -163,6 +173,7 @@ def get_safety_summary(
         breaches=summary.get("breaches", []),
         thresholds_applied=summary.get("thresholds_applied", {}),
         total_results=len(raw_results),
+        stress_flip_rate=summary.get("stress_flip_rate", 0.0),
     )
 
 

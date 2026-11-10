@@ -127,9 +127,41 @@ class SafetyMixin:
             results.append(rd)
         return results
 
-    def get_safety_summary(self, eval_run_id: str) -> Dict[str, Any]:
-        """Aggregate safety results by category, language, and branch."""
+    def get_safety_summary(
+        self,
+        eval_run_id: str,
+        risk_tier: Optional[str] = None,
+        overrides: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Aggregate safety results by category, language, and branch with model tier/overrides."""
         results = self.list_safety_results(eval_run_id=eval_run_id, limit=5000)
+
+        tier = risk_tier
+        thresh_overrides = dict(overrides or {})
+
+        # If tier or overrides not provided, resolve from the governed model
+        if not tier or not overrides:
+            gov_model_id = results[0].get("governed_model_id") if results else None
+            if not gov_model_id:
+                with self._read_conn() as c:
+                    er = c.fetchone("SELECT governed_model_id FROM eval_runs WHERE id=?", (eval_run_id,))
+                    if er:
+                        gov_model_id = er["governed_model_id"]
+            if gov_model_id:
+                try:
+                    from core.model_inventory import ModelInventory
+                    model = ModelInventory(self).get_model(gov_model_id)
+                    if model:
+                        if not tier and model.risk_tier:
+                            tier = model.risk_tier.value
+                        if not overrides and model.evaluation_signals:
+                            sig_overrides = model.evaluation_signals.get("safety_thresholds")
+                            if isinstance(sig_overrides, dict):
+                                thresh_overrides.update(sig_overrides)
+                except Exception as exc:
+                    logger.debug("Failed to lookup model for safety summary: %s", exc)
+
+        tier = tier or "HIGH"
         from core.safety.thresholds import aggregate_safety_summary
-        return aggregate_safety_summary(results)
+        return aggregate_safety_summary(results, risk_tier=tier, overrides=thresh_overrides)
 

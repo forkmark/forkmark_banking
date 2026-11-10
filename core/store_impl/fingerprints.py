@@ -56,13 +56,15 @@ class FingerprintsMixin:
         governed_model_id: Optional[str] = None,
         connector_id: Optional[str] = None,
         limit: int = 50,
+        model_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """List observed fingerprints, newest first."""
+        target_id = governed_model_id or model_id
         query = "SELECT * FROM model_fingerprints WHERE 1=1"
         params: list[Any] = []
-        if governed_model_id:
+        if target_id:
             query += " AND governed_model_id=?"
-            params.append(governed_model_id)
+            params.append(target_id)
         if connector_id:
             query += " AND connector_id=?"
             params.append(connector_id)
@@ -72,6 +74,21 @@ class FingerprintsMixin:
         with self._read_conn() as c:
             rows = c.fetchall(query, tuple(params))
         return [_row(r) for r in rows]
+
+    def list_model_fingerprints(
+        self,
+        governed_model_id: Optional[str] = None,
+        connector_id: Optional[str] = None,
+        limit: int = 50,
+        model_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Alias for list_fingerprints."""
+        return self.list_fingerprints(
+            governed_model_id=governed_model_id,
+            connector_id=connector_id,
+            limit=limit,
+            model_id=model_id,
+        )
 
     def get_latest_fingerprint(
         self, governed_model_id: str

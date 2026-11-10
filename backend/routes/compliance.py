@@ -237,13 +237,13 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
     # Continuous monitoring runs
     monitoring_runs = []
     try:
-        monitors = db.list_monitors(model_id=model_id)
+        monitors = db.list_monitors(governed_model_id=model_id)
         for m in monitors:
             mruns = db.list_monitor_runs(monitor_id=m["id"], limit=50)
             monitoring_runs.extend(mruns)
-        monitoring_runs.sort(key=lambda r: r.get("created_at") or "")
+        monitoring_runs.sort(key=lambda r: r.get("started_at") or r.get("created_at") or "")
     except Exception as exc:
-        logger.debug("Failed to list monitors for model %s: %s", model_id, exc)
+        logger.warning("Failed to list monitors for model %s: %s", model_id, exc)
 
     # Fairness: compute a real disparity + verdict from the model's observed
     # per-group scores (ingested from the fairness test set).
@@ -257,22 +257,27 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
     # Provenance and third-party model governance
     prov_dict = {}
     try:
-        fingerprints = db.list_model_fingerprints(model_id, limit=50)
+        fingerprints = db.list_fingerprints(governed_model_id=model_id, limit=50)
         connector = db.get_provider(model.connector_id) if (model and model.connector_id) else None
 
-        region = (connector.get("inference_region") if connector else "") or "me-central-1"
+        vendor = (connector.get("vendor_name") if connector else "") or (model.provider if model else "") or "not recorded"
+        licence = (connector.get("licence") if connector else "") or "not recorded"
+        hosting = (connector.get("hosting") if connector else "") or "not recorded"
+        region = (connector.get("inference_region") if connector else "") or "not recorded"
+
         is_cb = False
-        reg_lower = region.lower()
-        if reg_lower not in ("me-central-1", "uaenorth", "uae-north", "uae-central", "uae", "local", "on-prem") and "uae" not in reg_lower and "me-central" not in reg_lower:
-            is_cb = True
+        if region != "not recorded":
+            reg_lower = region.lower()
+            if reg_lower not in ("me-central-1", "uaenorth", "uae-north", "uae-central", "uae", "local", "on-prem") and "uae" not in reg_lower and "me-central" not in reg_lower:
+                is_cb = True
 
         reported_models = list(dict.fromkeys(f.get("model_reported") for f in fingerprints if f.get("model_reported")))
         fp_list = list(dict.fromkeys(f.get("system_fingerprint") for f in fingerprints if f.get("system_fingerprint")))
 
         prov_dict = {
-            "vendor": (connector.get("vendor_name") if connector else "") or (model.provider if model else ""),
-            "licence": (connector.get("licence") if connector else "") or "Proprietary",
-            "hosting": (connector.get("hosting") if connector else "") or ("Sovereign Cloud" if not is_cb else "Cloud"),
+            "vendor": vendor,
+            "licence": licence,
+            "hosting": hosting,
             "inference_region": region,
             "is_cross_border": is_cb,
             "models_reported": reported_models,
@@ -280,7 +285,7 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
             "vendor_changed_unvalidated": (model.status.value.lower() == "changed") if model else False,
         }
     except Exception as exc:
-        logger.debug("Failed to construct provenance for model %s: %s", model_id, exc)
+        logger.warning("Failed to construct provenance for model %s: %s", model_id, exc)
 
     suite = ["NumericalFidelityEvaluator"]
     if bias_results:

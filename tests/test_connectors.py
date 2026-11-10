@@ -7,8 +7,10 @@ from core.connectors.azure_openai import AzureOpenAIConnector
 from core.connectors.presets import PRESETS, get_preset
 
 
-def test_migration_v17_schema():
+def test_migration_v17_schema(tmp_path):
     """Verify Migration v17 columns and model_fingerprints table exist."""
+    from core.store import Database
+    db = Database(str(tmp_path / "v17_test.db"))
     # 1. llm_providers columns
     provider = db.create_provider(
         name="Test Inception Jais",

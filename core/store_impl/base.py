@@ -150,6 +150,8 @@ class _SQLiteConn:
 
     def _get_read_conn(self) -> sqlite3.Connection:
         """Thread-local read connection — no lock needed, WAL allows concurrent readers."""
+        if self._path == ":memory:":
+            return self._get_write_conn()
         conn = getattr(self._local, 'conn', None)
         if conn is None:
             conn = sqlite3.connect(self._path, check_same_thread=False)

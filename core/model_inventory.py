@@ -92,8 +92,12 @@ def _parse_dt(value: Optional[str | datetime]) -> Optional[datetime]:
     if not value:
         return None
     if isinstance(value, datetime):
-        return value
-    return datetime.fromisoformat(value)
+        dt = value
+    else:
+        dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _now() -> datetime:
