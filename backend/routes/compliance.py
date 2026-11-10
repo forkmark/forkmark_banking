@@ -17,7 +17,17 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
-from backend.deps import db, principal, ui_read_auth, ui_write_auth
+import backend.deps as deps
+from backend.deps import principal, ui_read_auth, ui_write_auth
+
+
+class _DBProxy:
+    """Dynamic proxy delegating to the live backend.deps.db instance."""
+    def __getattr__(self, name: str) -> Any:
+        return getattr(deps.db, name)
+
+
+db = _DBProxy()
 from core.compliance_reporter import ComplianceReporter, ValidationEvidence
 from core.finance_evaluators import BiasDisparityEvaluator, NumericalFidelityEvaluator
 from core.regulatory_frameworks import RegulatoryFramework
@@ -148,9 +158,7 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
     output is treated as the source of truth; any figure the challenger introduces
     that the champion did not ground is flagged.
     """
-    runs = db.list_eval_runs_for_model(model_id)
-    if not runs:
-        return ValidationEvidence()
+    runs = db.list_eval_runs_for_model(model_id) or []
 
     # Aggregate evidence across EVERY linked validation run, not just the most
     # recent. Taking only runs[0] silently dropped all prior evidence: linking a

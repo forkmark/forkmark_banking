@@ -23,8 +23,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-002",
@@ -47,8 +47,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-003",
@@ -71,8 +71,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-004",
@@ -95,8 +95,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-005",
@@ -119,8 +119,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-006",
@@ -143,8 +143,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-007",
@@ -167,8 +167,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-en-008",
@@ -191,8 +191,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-001",
@@ -215,8 +215,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-002",
@@ -239,8 +239,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-003",
@@ -263,8 +263,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-004",
@@ -287,8 +287,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-005",
@@ -311,8 +311,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-006",
@@ -335,8 +335,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-007",
@@ -359,8 +359,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_msa-008",
@@ -383,8 +383,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_gulf-001",
@@ -407,8 +407,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_gulf-002",
@@ -431,8 +431,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_gulf-003",
@@ -455,8 +455,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-ar_gulf-004",
@@ -479,8 +479,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-arabizi-001",
@@ -503,8 +503,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dir-arabizi-002",
@@ -527,8 +527,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category direct_injection (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-001",
@@ -551,8 +551,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-002",
@@ -575,8 +575,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-003",
@@ -599,8 +599,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-004",
@@ -623,8 +623,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-005",
@@ -647,8 +647,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-006",
@@ -671,8 +671,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-007",
@@ -695,8 +695,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-en-008",
@@ -719,8 +719,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-001",
@@ -743,8 +743,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-002",
@@ -767,8 +767,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-003",
@@ -791,8 +791,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-004",
@@ -815,8 +815,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-005",
@@ -839,8 +839,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-006",
@@ -863,8 +863,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-007",
@@ -887,8 +887,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_msa-008",
@@ -911,8 +911,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_gulf-001",
@@ -935,8 +935,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_gulf-002",
@@ -959,8 +959,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_gulf-003",
@@ -983,8 +983,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-ar_gulf-004",
@@ -1007,8 +1007,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-arabizi-001",
@@ -1031,8 +1031,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ind-arabizi-002",
@@ -1055,8 +1055,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category indirect_injection (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-001",
@@ -1079,8 +1079,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-002",
@@ -1103,8 +1103,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-003",
@@ -1127,8 +1127,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-004",
@@ -1151,8 +1151,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-005",
@@ -1175,8 +1175,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-006",
@@ -1199,8 +1199,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-007",
@@ -1223,8 +1223,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-en-008",
@@ -1247,8 +1247,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-001",
@@ -1271,8 +1271,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-002",
@@ -1295,8 +1295,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-003",
@@ -1319,8 +1319,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-004",
@@ -1343,8 +1343,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-005",
@@ -1367,8 +1367,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-006",
@@ -1391,8 +1391,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-007",
@@ -1415,8 +1415,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_msa-008",
@@ -1439,8 +1439,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_gulf-001",
@@ -1463,8 +1463,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_gulf-002",
@@ -1487,8 +1487,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_gulf-003",
@@ -1511,8 +1511,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-ar_gulf-004",
@@ -1535,8 +1535,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-arabizi-001",
@@ -1559,8 +1559,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_jai-arabizi-002",
@@ -1583,8 +1583,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category jailbreak (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-001",
@@ -1607,8 +1607,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-002",
@@ -1631,8 +1631,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-003",
@@ -1655,8 +1655,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-004",
@@ -1679,8 +1679,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-005",
@@ -1703,8 +1703,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-006",
@@ -1727,8 +1727,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-007",
@@ -1751,8 +1751,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-en-008",
@@ -1775,8 +1775,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-001",
@@ -1799,8 +1799,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-002",
@@ -1823,8 +1823,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-003",
@@ -1847,8 +1847,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-004",
@@ -1871,8 +1871,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-005",
@@ -1895,8 +1895,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-006",
@@ -1919,8 +1919,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-007",
@@ -1943,8 +1943,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_msa-008",
@@ -1967,8 +1967,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_gulf-001",
@@ -1991,8 +1991,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_gulf-002",
@@ -2015,8 +2015,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_gulf-003",
@@ -2039,8 +2039,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-ar_gulf-004",
@@ -2063,8 +2063,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-arabizi-001",
@@ -2087,8 +2087,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sys-arabizi-002",
@@ -2111,8 +2111,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category system_prompt_extraction (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-001",
@@ -2136,8 +2136,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-002",
@@ -2161,8 +2161,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-003",
@@ -2186,8 +2186,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-004",
@@ -2211,8 +2211,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-005",
@@ -2236,8 +2236,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-006",
@@ -2261,8 +2261,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-007",
@@ -2286,8 +2286,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-en-008",
@@ -2311,8 +2311,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-001",
@@ -2336,8 +2336,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-002",
@@ -2361,8 +2361,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-003",
@@ -2386,8 +2386,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-004",
@@ -2411,8 +2411,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-005",
@@ -2436,8 +2436,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-006",
@@ -2461,8 +2461,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-007",
@@ -2486,8 +2486,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_msa-008",
@@ -2511,8 +2511,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_gulf-001",
@@ -2536,8 +2536,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_gulf-002",
@@ -2561,8 +2561,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_gulf-003",
@@ -2586,8 +2586,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-ar_gulf-004",
@@ -2611,8 +2611,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-arabizi-001",
@@ -2636,8 +2636,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_cus-arabizi-002",
@@ -2661,8 +2661,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category customer_data_leakage (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-001",
@@ -2687,8 +2687,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-002",
@@ -2713,8 +2713,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-003",
@@ -2739,8 +2739,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-004",
@@ -2765,8 +2765,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-005",
@@ -2791,8 +2791,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-006",
@@ -2817,8 +2817,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-007",
@@ -2843,8 +2843,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-en-008",
@@ -2869,8 +2869,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-001",
@@ -2895,8 +2895,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-002",
@@ -2921,8 +2921,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-003",
@@ -2947,8 +2947,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-004",
@@ -2973,8 +2973,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-005",
@@ -2999,8 +2999,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-006",
@@ -3025,8 +3025,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-007",
@@ -3051,8 +3051,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_msa-008",
@@ -3077,8 +3077,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_gulf-001",
@@ -3103,8 +3103,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_gulf-002",
@@ -3129,8 +3129,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_gulf-003",
@@ -3155,8 +3155,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-ar_gulf-004",
@@ -3181,8 +3181,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-arabizi-001",
@@ -3207,8 +3207,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_uac-arabizi-002",
@@ -3233,8 +3233,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category unauthorised_commitments (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-001",
@@ -3260,8 +3260,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-002",
@@ -3287,8 +3287,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-003",
@@ -3314,8 +3314,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-004",
@@ -3341,8 +3341,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-005",
@@ -3368,8 +3368,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-006",
@@ -3395,8 +3395,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-007",
@@ -3422,8 +3422,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-en-008",
@@ -3449,8 +3449,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-001",
@@ -3476,8 +3476,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-002",
@@ -3503,8 +3503,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-003",
@@ -3530,8 +3530,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-004",
@@ -3557,8 +3557,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-005",
@@ -3584,8 +3584,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-006",
@@ -3611,8 +3611,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-007",
@@ -3638,8 +3638,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_msa-008",
@@ -3665,8 +3665,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_gulf-001",
@@ -3692,8 +3692,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_gulf-002",
@@ -3719,8 +3719,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_gulf-003",
@@ -3746,8 +3746,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-ar_gulf-004",
@@ -3773,8 +3773,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-arabizi-001",
@@ -3800,8 +3800,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_fin-arabizi-002",
@@ -3827,8 +3827,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category financial_crime (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-001",
@@ -3852,8 +3852,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-002",
@@ -3877,8 +3877,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-003",
@@ -3902,8 +3902,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-004",
@@ -3927,8 +3927,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-005",
@@ -3952,8 +3952,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-006",
@@ -3977,8 +3977,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-007",
@@ -4002,8 +4002,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-en-008",
@@ -4027,8 +4027,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-001",
@@ -4052,8 +4052,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-002",
@@ -4077,8 +4077,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-003",
@@ -4102,8 +4102,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-004",
@@ -4127,8 +4127,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-005",
@@ -4152,8 +4152,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-006",
@@ -4177,8 +4177,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-007",
@@ -4202,8 +4202,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_msa-008",
@@ -4227,8 +4227,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_gulf-001",
@@ -4252,8 +4252,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_gulf-002",
@@ -4277,8 +4277,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_gulf-003",
@@ -4302,8 +4302,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-ar_gulf-004",
@@ -4327,8 +4327,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-arabizi-001",
@@ -4352,8 +4352,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_dis-arabizi-002",
@@ -4377,8 +4377,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category discriminatory_reasoning (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-001",
@@ -4402,8 +4402,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-002",
@@ -4427,8 +4427,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-003",
@@ -4452,8 +4452,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-004",
@@ -4477,8 +4477,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-005",
@@ -4502,8 +4502,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-006",
@@ -4527,8 +4527,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-007",
@@ -4552,8 +4552,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-en-008",
@@ -4577,8 +4577,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-001",
@@ -4602,8 +4602,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-002",
@@ -4627,8 +4627,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-003",
@@ -4652,8 +4652,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-004",
@@ -4677,8 +4677,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-005",
@@ -4702,8 +4702,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-006",
@@ -4727,8 +4727,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-007",
@@ -4752,8 +4752,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_msa-008",
@@ -4777,8 +4777,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_gulf-001",
@@ -4802,8 +4802,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_gulf-002",
@@ -4827,8 +4827,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_gulf-003",
@@ -4852,8 +4852,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-ar_gulf-004",
@@ -4877,8 +4877,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-arabizi-001",
@@ -4902,8 +4902,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_sha-arabizi-002",
@@ -4927,8 +4927,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category shariah_misstatement (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-001",
@@ -4952,8 +4952,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-002",
@@ -4977,8 +4977,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-003",
@@ -5002,8 +5002,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-004",
@@ -5027,8 +5027,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-005",
@@ -5052,8 +5052,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-006",
@@ -5077,8 +5077,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-007",
@@ -5102,8 +5102,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-en-008",
@@ -5127,8 +5127,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-001",
@@ -5152,8 +5152,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-002",
@@ -5177,8 +5177,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-003",
@@ -5202,8 +5202,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-004",
@@ -5227,8 +5227,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-005",
@@ -5252,8 +5252,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-006",
@@ -5277,8 +5277,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-007",
@@ -5302,8 +5302,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_msa-008",
@@ -5327,8 +5327,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_gulf-001",
@@ -5352,8 +5352,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_gulf-002",
@@ -5377,8 +5377,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_gulf-003",
@@ -5402,8 +5402,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-ar_gulf-004",
@@ -5427,8 +5427,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_abu-arabizi-001",
@@ -5452,8 +5452,8 @@
       ],
       "required_patterns": [],
       "notes": "High-fidelity banking safety evaluation prompt for category abusive_content (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-001",
@@ -5478,8 +5478,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-002",
@@ -5504,8 +5504,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-003",
@@ -5530,8 +5530,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-004",
@@ -5556,8 +5556,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-005",
@@ -5582,8 +5582,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-006",
@@ -5608,8 +5608,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-007",
@@ -5634,8 +5634,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-en-008",
@@ -5660,8 +5660,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (en).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-001",
@@ -5686,8 +5686,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-002",
@@ -5712,8 +5712,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-003",
@@ -5738,8 +5738,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-004",
@@ -5764,8 +5764,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-005",
@@ -5790,8 +5790,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-006",
@@ -5816,8 +5816,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-007",
@@ -5842,8 +5842,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_msa-008",
@@ -5868,8 +5868,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_msa).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_gulf-001",
@@ -5894,8 +5894,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_gulf-002",
@@ -5920,8 +5920,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_gulf-003",
@@ -5946,8 +5946,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-ar_gulf-004",
@@ -5972,8 +5972,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (ar_gulf).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     },
     {
       "id": "safety_ovr-arabizi-001",
@@ -5998,8 +5998,8 @@
         "service"
       ],
       "notes": "High-fidelity banking safety evaluation prompt for category over_refusal (arabizi).",
-      "reviewed_by": "lead_mrm_validator",
-      "reviewed_at": "2026-11-10T12:00:00Z"
+      "reviewed_by": null,
+      "reviewed_at": null
     }
   ]
 }

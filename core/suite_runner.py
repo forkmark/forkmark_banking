@@ -120,7 +120,12 @@ async def run_suite_async(
         is_stress = (run_kind == "stress")
         pert_variant = None
         if is_stress:
-            from core.safety.stress_engine import generate_stress_variants
+            from core.safety.stress_engine import (
+                generate_stress_variants,
+                compute_decision_flip_rate,
+                compute_score_stability,
+                compute_bilingual_figure_match,
+            )
             user_text = (
                 tc.get("input")
                 or (tc.get("input_data", {}).get("input") if isinstance(tc.get("input_data"), dict) else "")
@@ -141,6 +146,18 @@ async def run_suite_async(
 
         # 1. Execute Champion
         try:
+            resp_a_base = None
+            if is_stress:
+                # Execute original baseline case to establish ground-truth decision for comparison
+                resp_a_base = await gateway.achat(
+                    connector_id=champ_conn_id,
+                    messages=_resolve_messages(tc, champ_sys_prompt),
+                    model=champ_model,
+                    temperature=champ_temp,
+                    purpose="validation_stress_baseline",
+                    eval_run_id=eval_run_id,
+                )
+
             resp_a = await gateway.achat(
                 connector_id=champ_conn_id,
                 messages=messages_a,
@@ -194,11 +211,27 @@ async def run_suite_async(
                     if k not in case_dict:
                         case_dict[k] = v
                 eval_res = evaluate_safety_case(case_dict, resp_a.text)
-                if is_stress and pert_variant:
-                    is_flipped = (eval_res["verdict"] == "fail")
+                if is_stress and pert_variant and resp_a_base:
+                    eval_base = evaluate_safety_case(case_dict, resp_a_base.text)
+                    base_v = eval_base["verdict"]
+                    pert_v = eval_res["verdict"]
+                    flip_rate = compute_decision_flip_rate(base_v, [pert_v])
+                    is_flipped = (flip_rate > 0.0)
+                    stab_cv = compute_score_stability([
+                        1.0 if base_v == "pass" else 0.0,
+                        1.0 if pert_v == "pass" else 0.0,
+                    ])
+                    is_bi_match, bi_ratio, _, _ = compute_bilingual_figure_match(
+                        resp_a_base.text, resp_a.text
+                    )
                     eval_res["detectors"]["stress"] = {
                         "flipped": is_flipped,
-                        "variant": pert_variant["variant_type"],
+                        "base_verdict": base_v,
+                        "variant_verdict": pert_v,
+                        "variant_type": pert_variant["variant_type"],
+                        "stability_cv": stab_cv,
+                        "bilingual_figure_match": is_bi_match,
+                        "bilingual_match_ratio": bi_ratio,
                     }
                 await asyncio.to_thread(
                     db.save_safety_result,
@@ -222,6 +255,7 @@ async def run_suite_async(
 
         # 2. Execute Challenger if present
         if challenger and branch_b_obj:
+            resp_b_base = None
             if is_stress and pert_variant:
                 pert_tc_b = dict(tc)
                 pert_tc_b["input"] = pert_variant["text"]
@@ -231,6 +265,16 @@ async def run_suite_async(
             else:
                 messages_b = _resolve_messages(tc, chal_sys_prompt)
             try:
+                if is_stress:
+                    resp_b_base = await gateway.achat(
+                        connector_id=chal_conn_id,
+                        messages=_resolve_messages(tc, chal_sys_prompt),
+                        model=chal_model,
+                        temperature=chal_temp,
+                        purpose="validation_stress_baseline",
+                        eval_run_id=eval_run_id,
+                    )
+
                 resp_b = await gateway.achat(
                     connector_id=chal_conn_id,
                     messages=messages_b,
@@ -268,11 +312,27 @@ async def run_suite_async(
                         if k not in case_dict:
                             case_dict[k] = v
                     eval_res_b = evaluate_safety_case(case_dict, resp_b.text)
-                    if is_stress and pert_variant:
-                        is_flipped_b = (eval_res_b["verdict"] == "fail")
+                    if is_stress and pert_variant and resp_b_base:
+                        eval_b_base = evaluate_safety_case(case_dict, resp_b_base.text)
+                        base_vb = eval_b_base["verdict"]
+                        pert_vb = eval_res_b["verdict"]
+                        flip_rate_b = compute_decision_flip_rate(base_vb, [pert_vb])
+                        is_flipped_b = (flip_rate_b > 0.0)
+                        stab_cv_b = compute_score_stability([
+                            1.0 if base_vb == "pass" else 0.0,
+                            1.0 if pert_vb == "pass" else 0.0,
+                        ])
+                        is_bi_match_b, bi_ratio_b, _, _ = compute_bilingual_figure_match(
+                            resp_b_base.text, resp_b.text
+                        )
                         eval_res_b["detectors"]["stress"] = {
                             "flipped": is_flipped_b,
-                            "variant": pert_variant["variant_type"],
+                            "base_verdict": base_vb,
+                            "variant_verdict": pert_vb,
+                            "variant_type": pert_variant["variant_type"],
+                            "stability_cv": stab_cv_b,
+                            "bilingual_figure_match": is_bi_match_b,
+                            "bilingual_match_ratio": bi_ratio_b,
                         }
                     await asyncio.to_thread(
                         db.save_safety_result,

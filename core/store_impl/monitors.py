@@ -245,6 +245,12 @@ class MonitorsMixin:
             )
         return self.get_monitor_run(rid)  # type: ignore
 
+    def save_monitor_run(self, *args, **kwargs) -> Dict[str, Any]:
+        """Save a monitor execution run, accepting a dictionary or keyword arguments."""
+        if args and isinstance(args[0], dict):
+            return self.create_monitor_run(args[0])
+        return self.create_monitor_run(kwargs)
+
     def get_monitor_run(self, run_id: str) -> Optional[Dict[str, Any]]:
         """Fetch a monitor run by ID."""
         with self._read_conn() as c:
@@ -322,14 +328,28 @@ class MonitorsMixin:
         monitor_id: str,
         state: str,
         governed_model_id: str,
-        audit_entry: Dict[str, Any],
+        audit_entry: Optional[Dict[str, Any]] = None,
         next_validation_due: Optional[str] = None,
+        now_utc: Optional[Any] = None,
+        run_id: Optional[str] = None,
+        **extra: Any,
     ) -> bool:
         """Atomically update monitor state, model next_validation_due, and write audit log.
 
         Guarantees that if audit write fails, all state changes roll back.
         """
-        now = datetime.now(timezone.utc).isoformat()
+        now_dt = now_utc if isinstance(now_utc, datetime) else datetime.now(timezone.utc)
+        now = now_dt.isoformat()
+        if next_validation_due is None and state.lower() in ("changed", "alert"):
+            next_validation_due = now
+
+        entry = audit_entry or {
+            "action": f"monitor.{state.lower()}",
+            "actor": "system",
+            "actor_role": "system",
+            "detail": {"monitor_id": monitor_id, "state": state, "run_id": run_id},
+        }
+
         with self._conn() as c:
             # 1. Update monitor state
             c.execute("UPDATE monitors SET state = ? WHERE id = ?", (state, monitor_id))
@@ -345,13 +365,13 @@ class MonitorsMixin:
 
             # 3. Write supervisory audit log inside the EXACT same transaction
             self.add_audit_log(
-                action=audit_entry.get("action", "monitor.alert"),
-                actor=audit_entry.get("actor", "system"),
-                actor_role=audit_entry.get("actor_role", "system"),
+                action=entry.get("action", f"monitor.{state.lower()}"),
+                actor=entry.get("actor", "system"),
+                actor_role=entry.get("actor_role", "system"),
                 resource_type="model",
                 resource_id=governed_model_id,
-                detail=audit_entry.get("detail", {}),
-                ip=audit_entry.get("ip", ""),
+                detail=entry.get("detail", {}),
+                ip=entry.get("ip", ""),
                 conn=c,
             )
         return True
