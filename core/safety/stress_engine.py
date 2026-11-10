@@ -116,34 +116,43 @@ def compute_score_stability(scores: List[float]) -> float:
     return std_dev / abs(mean)
 
 
+def compute_figure_consistency(
+    text1: str,
+    text2: str,
+    tolerance: float = 1e-4,
+) -> Tuple[bool, float, List[float], List[float]]:
+    """Check whether numbers in baseline and perturbed variant replies match.
+
+    Returns:
+        (is_match, match_ratio, text1_numbers, text2_numbers)
+    """
+    nums1 = [n.value for n in _extract_numbers(text1) if not math.isnan(n.value)]
+    nums2 = [n.value for n in _extract_numbers(text2) if not math.isnan(n.value)]
+
+    if not nums1 and not nums2:
+        return True, 1.0, [], []
+    if not nums1 or not nums2:
+        return False, 0.0, nums1, nums2
+
+    matched = 0
+    used2 = set()
+    for ne in nums1:
+        for j, na in enumerate(nums2):
+            if j not in used2 and math.isclose(ne, na, rel_tol=tolerance, abs_tol=tolerance):
+                matched += 1
+                used2.add(j)
+                break
+
+    match_ratio = (2.0 * matched) / (len(nums1) + len(nums2))
+    is_match = (match_ratio >= 0.99)
+    return is_match, match_ratio, nums1, nums2
+
+
 def compute_bilingual_figure_match(
     text_en: str,
     text_ar: str,
     tolerance: float = 1e-4,
 ) -> Tuple[bool, float, List[float], List[float]]:
-    """Check whether numbers in English and Arabic replies match.
-
-    Returns:
-        (is_match, match_ratio, en_numbers, ar_numbers)
-    """
-    nums_en = [n.value for n in _extract_numbers(text_en) if not math.isnan(n.value)]
-    nums_ar = [n.value for n in _extract_numbers(text_ar) if not math.isnan(n.value)]
-
-    if not nums_en and not nums_ar:
-        return True, 1.0, [], []
-    if not nums_en or not nums_ar:
-        return False, 0.0, nums_en, nums_ar
-
-    matched = 0
-    used_ar = set()
-    for ne in nums_en:
-        for j, na in enumerate(nums_ar):
-            if j not in used_ar and math.isclose(ne, na, rel_tol=tolerance, abs_tol=tolerance):
-                matched += 1
-                used_ar.add(j)
-                break
-
-    match_ratio = (2.0 * matched) / (len(nums_en) + len(nums_ar))
-    is_match = (match_ratio >= 0.99)
-    return is_match, match_ratio, nums_en, nums_ar
+    """Check whether numbers in English and Arabic replies match (bilingual translation variant)."""
+    return compute_figure_consistency(text_en, text_ar, tolerance=tolerance)
 

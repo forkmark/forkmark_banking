@@ -124,6 +124,7 @@ async def run_suite_async(
                 generate_stress_variants,
                 compute_decision_flip_rate,
                 compute_score_stability,
+                compute_figure_consistency,
                 compute_bilingual_figure_match,
             )
             user_text = (
@@ -221,7 +222,8 @@ async def run_suite_async(
                         1.0 if base_v == "pass" else 0.0,
                         1.0 if pert_v == "pass" else 0.0,
                     ])
-                    is_bi_match, bi_ratio, _, _ = compute_bilingual_figure_match(
+                    is_translation = (pert_variant.get("variant_type") in ("arabic_translation", "translation"))
+                    is_fig_match, fig_ratio, _, _ = compute_figure_consistency(
                         resp_a_base.text, resp_a.text
                     )
                     eval_res["detectors"]["stress"] = {
@@ -230,8 +232,11 @@ async def run_suite_async(
                         "variant_verdict": pert_v,
                         "variant_type": pert_variant["variant_type"],
                         "stability_cv": stab_cv,
-                        "bilingual_figure_match": is_bi_match,
-                        "bilingual_match_ratio": bi_ratio,
+                        "figure_consistency_match": is_fig_match,
+                        "figure_consistency_ratio": fig_ratio,
+                        "bilingual_figure_match": is_fig_match,
+                        "bilingual_match_ratio": fig_ratio,
+                        "is_translation_variant": is_translation,
                     }
                 await asyncio.to_thread(
                     db.save_safety_result,
@@ -322,7 +327,8 @@ async def run_suite_async(
                             1.0 if base_vb == "pass" else 0.0,
                             1.0 if pert_vb == "pass" else 0.0,
                         ])
-                        is_bi_match_b, bi_ratio_b, _, _ = compute_bilingual_figure_match(
+                        is_translation = (pert_variant.get("variant_type") in ("arabic_translation", "translation"))
+                        is_fig_match_b, fig_ratio_b, _, _ = compute_figure_consistency(
                             resp_b_base.text, resp_b.text
                         )
                         eval_res_b["detectors"]["stress"] = {
@@ -331,8 +337,11 @@ async def run_suite_async(
                             "variant_verdict": pert_vb,
                             "variant_type": pert_variant["variant_type"],
                             "stability_cv": stab_cv_b,
-                            "bilingual_figure_match": is_bi_match_b,
-                            "bilingual_match_ratio": bi_ratio_b,
+                            "figure_consistency_match": is_fig_match_b,
+                            "figure_consistency_ratio": fig_ratio_b,
+                            "bilingual_figure_match": is_fig_match_b,
+                            "bilingual_match_ratio": fig_ratio_b,
+                            "is_translation_variant": is_translation,
                         }
                     await asyncio.to_thread(
                         db.save_safety_result,

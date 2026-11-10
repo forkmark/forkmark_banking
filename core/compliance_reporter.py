@@ -149,15 +149,19 @@ class Finding:
         }
 
 
-def _summarize_decisions(decisions: list[dict[str, Any]]) -> dict[str, Any]:
+def _summarize_decisions(decisions: list[dict[str, Any]], cases_needing_review: int = 0) -> dict[str, Any]:
     """Aggregate human review decisions: choice / confidence mix + rationale themes."""
     if not decisions:
+        summary_ar = "لم يتم تسجيل أي قرارات مراجعة بشرية."
+        if cases_needing_review > 0:
+            summary_ar += f" توجد {cases_needing_review} حالة سلامة مدرجة ضمن قائمة المراجعة الإشرافية."
         return {
             "total_decisions": 0,
+            "cases_needing_review": cases_needing_review,
             "choice_distribution": {},
             "confidence_distribution": {},
             "rationale_themes": [],
-            "summary_ar": "لم يتم تسجيل أي قرارات مراجعة بشرية.",
+            "summary_ar": summary_ar,
         }
     choices = Counter(str(d.get("choice", "unknown")) for d in decisions)
     confidences = Counter(str(d.get("confidence", "unknown")) for d in decisions)
@@ -172,16 +176,21 @@ def _summarize_decisions(decisions: list[dict[str, Any]]) -> dict[str, Any]:
     themes = [{"theme": w, "count": n} for w, n in words.most_common(8)]
     themes_str = ", ".join(f"{t['theme']} ({t['count']})" for t in themes) or "لا يوجد"
 
+    summary_ar = (
+        f"إجمالي القرارات: {len(decisions)}. توزيع الخيارات: {dict(choices)}. "
+        f"توزيع مستوى الثقة: {dict(confidences)}. المحاور المتكررة في "
+        f"المبررات: {themes_str}."
+    )
+    if cases_needing_review > 0:
+        summary_ar += f" كما توجد {cases_needing_review} حالة سلامة مدرجة ضمن قائمة المراجعة الإشرافية."
+
     return {
         "total_decisions": len(decisions),
+        "cases_needing_review": cases_needing_review,
         "choice_distribution": dict(choices),
         "confidence_distribution": dict(confidences),
         "rationale_themes": themes,
-        "summary_ar": (
-            f"إجمالي القرارات: {len(decisions)}. توزيع الخيارات: {dict(choices)}. "
-            f"توزيع مستوى الثقة: {dict(confidences)}. المحاور المتكررة في "
-            f"المبررات: {themes_str}."
-        ),
+        "summary_ar": summary_ar,
     }
 
 
@@ -670,11 +679,13 @@ def build_validation_memo(
     pii_cnt = sum(s.get("pii_leaks", 0) for s in all_safety_stress)
     or_rate = max([s.get("over_refusal_rate", 0.0) for s in evidence.safety_summaries] or [0.0])
     flip_rate = max([s.get("stress_flip_rate", 0.0) for s in evidence.stress_summaries] or [0.0])
+    cases_needing_review = sum(s.get("cases_needing_review", 0) for s in all_safety_stress)
 
     summary_ar_rs = (
         f"تقييم المتانة والسلامة: النتيجة العامة [{rs_verdict_ar}]. "
         f"تسريبات الكناري: {canary_cnt}، تسريبات البيانات الشخصية: {pii_cnt}. "
-        f"معدل الرفض المفرط: {or_rate:.1%}، معدل التقلب تحت الإجهاد: {flip_rate:.1%}."
+        f"معدل الرفض المفرط: {or_rate:.1%}، معدل التقلب تحت الإجهاد: {flip_rate:.1%}، "
+        f"حالات بحاجة لمراجعة إشرافية: {cases_needing_review}."
         if has_safety else "لم يتم تسجيل أي جولات تقييم للمتانة والسلامة."
     )
 
@@ -686,6 +697,7 @@ def build_validation_memo(
         "pii_leaks_count": pii_cnt,
         "over_refusal_rate": or_rate,
         "stress_flip_rate": flip_rate,
+        "cases_needing_review": cases_needing_review,
         "categories": cats_list,
         "languages": langs_list,
         "champion_vs_challenger": chal_comps,
@@ -834,7 +846,9 @@ def build_validation_memo(
         },
         "robustness_and_safety": robustness_and_safety_block,
         "ongoing_monitoring": ongoing_monitoring_block,
-        "human_review_summary": _summarize_decisions(evidence.decisions),
+        "human_review_summary": _summarize_decisions(
+            evidence.decisions, cases_needing_review=cases_needing_review
+        ),
         "regulatory_mapping": {
             "framework": requirements.name,
             "artifacts": [

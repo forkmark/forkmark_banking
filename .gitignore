@@ -73,6 +73,10 @@ hub71_submission/
 website/DEPLOY.md
 website/SETUP_REPO.md
 website/index-investor.html
+# Audit materials and held-out test scripts
+audit/
+Audit_2/
+*detector_holdout*
 # LibreOffice lock/temp artefacts.
 .~lock.*#
 *.tmp

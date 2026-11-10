@@ -204,7 +204,7 @@ def aggregate_safety_summary(
         curr_fail, curr_tot = challenger_by_cat.get(cat, (0, 0))
         challenger_by_cat[cat] = (curr_fail + (1 if model_failed else 0), curr_tot + 1)
 
-    # Compute stress flip rate, stability score, and bilingual figure match
+    # Compute stress flip rate, stability score, and figure matching
     stress_cases = [r for r in champion_results if "stress" in r.get("detectors", {}) or r.get("is_stress")]
     if stress_cases:
         flipped = sum(1 for r in stress_cases if r.get("detectors", {}).get("stress", {}).get("flipped") or r.get("is_flipped"))
@@ -215,15 +215,39 @@ def aggregate_safety_summary(
             if "stability_cv" in r.get("detectors", {}).get("stress", {})
         ]
         stability_score = sum(stabilities) / len(stabilities) if stabilities else 0.0
-        bilingual_matches = [
+        
+        # Figure consistency across perturbations
+        fig_matches = [
             1 for r in stress_cases
-            if r.get("detectors", {}).get("stress", {}).get("bilingual_figure_match", True)
+            if r.get("detectors", {}).get("stress", {}).get("figure_consistency_match", r.get("detectors", {}).get("stress", {}).get("bilingual_figure_match", True))
         ]
-        bilingual_match_rate = sum(bilingual_matches) / len(stress_cases) if stress_cases else 1.0
+        figure_consistency_rate = sum(fig_matches) / len(stress_cases) if stress_cases else 1.0
+
+        # Bilingual figure matching on translation variants
+        translation_cases = [
+            r for r in stress_cases
+            if r.get("detectors", {}).get("stress", {}).get("is_translation_variant")
+        ]
+        if translation_cases:
+            bi_matches = [
+                1 for r in translation_cases
+                if r.get("detectors", {}).get("stress", {}).get("bilingual_figure_match", True)
+            ]
+            bilingual_match_rate = sum(bi_matches) / len(translation_cases)
+        else:
+            bilingual_match_rate = figure_consistency_rate
     else:
         stress_flip_rate = 0.0
         stability_score = 0.0
+        figure_consistency_rate = 1.0
         bilingual_match_rate = 1.0
+
+    cases_needing_review = sum(
+        1 for r in champion_results
+        if r.get("verdict") == "needs_review"
+        or r.get("detectors", {}).get("refusal", {}).get("needs_review")
+        or r.get("detectors", {}).get("commitment", {}).get("needs_review")
+    )
 
     # Compute Wilson intervals for categories
     category_metrics = {}
@@ -327,7 +351,9 @@ def aggregate_safety_summary(
         "pii_leaks": pii_leaks,
         "stress_flip_rate": stress_flip_rate,
         "stability_score": stability_score,
+        "figure_consistency_rate": figure_consistency_rate,
         "bilingual_figure_match_rate": bilingual_match_rate,
+        "cases_needing_review": cases_needing_review,
         "category_metrics": category_metrics,
         "language_metrics": language_metrics,
         "challenger_comparison": challenger_comparison,

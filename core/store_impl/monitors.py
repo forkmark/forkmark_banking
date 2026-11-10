@@ -332,7 +332,6 @@ class MonitorsMixin:
         next_validation_due: Optional[str] = None,
         now_utc: Optional[Any] = None,
         run_id: Optional[str] = None,
-        **extra: Any,
     ) -> bool:
         """Atomically update monitor state, model next_validation_due, and write audit log.
 
@@ -340,7 +339,7 @@ class MonitorsMixin:
         """
         now_dt = now_utc if isinstance(now_utc, datetime) else datetime.now(timezone.utc)
         now = now_dt.isoformat()
-        if next_validation_due is None and state.lower() in ("changed", "alert"):
+        if next_validation_due is None and state.lower() == "changed":
             next_validation_due = now
 
         entry = audit_entry or {

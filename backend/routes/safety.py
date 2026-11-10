@@ -58,7 +58,9 @@ class SafetyRunSummaryResponse(BaseModel):
     total_results: int
     stress_flip_rate: float = 0.0
     stability_score: float = 0.0
+    figure_consistency_rate: float = 1.0
     bilingual_figure_match_rate: float = 1.0
+    cases_needing_review: int = 0
 
 
 @router.post(
@@ -177,7 +179,9 @@ def get_safety_summary(
         total_results=len(raw_results),
         stress_flip_rate=summary.get("stress_flip_rate", 0.0),
         stability_score=summary.get("stability_score", 0.0),
+        figure_consistency_rate=summary.get("figure_consistency_rate", 1.0),
         bilingual_figure_match_rate=summary.get("bilingual_figure_match_rate", 1.0),
+        cases_needing_review=summary.get("cases_needing_review", 0),
     )
 
 
