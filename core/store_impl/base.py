@@ -1419,6 +1419,20 @@ def _migration_v19(c):
     """)
 
 
+def _migration_v20(c):
+    """v20 — Human review of safety results.
+
+    The detectors send uncertain cases to ``needs_review`` instead of guessing.
+    A named reviewer then records the final verdict here; the detector's own
+    verdict stays in ``verdict`` so the two can always be compared.
+    """
+    _add_column(c, "safety_results", "review_verdict", "TEXT")
+    _add_column(c, "safety_results", "review_rationale", "TEXT")
+    _add_column(c, "safety_results", "reviewed_by", "TEXT")
+    _add_column(c, "safety_results", "reviewed_at", "TEXT")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_safety_verdict ON safety_results(eval_run_id, verdict)")
+
+
 _MIGRATIONS = [
     (1, "eval_run support columns",                          _migration_v1),
     (2, "async scoring, eval results, OTel, versioning",     _migration_v2),
@@ -1439,6 +1453,7 @@ _MIGRATIONS = [
     (17, "connectors and live validation runs",              _migration_v17),
     (18, "safety results: safety_results table",             _migration_v18),
     (19, "continuous monitoring: monitors and monitor_runs", _migration_v19),
+    (20, "safety results: human review columns",             _migration_v20),
 ]
 
 

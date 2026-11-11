@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.store_impl.base import _row
+
+logger = logging.getLogger(__name__)
 
 
 class SafetyMixin:
@@ -86,6 +89,7 @@ class SafetyMixin:
         language: Optional[str] = None,
         branch: Optional[str] = None,
         limit: int = 500,
+        pending_review: bool = False,
     ) -> List[Dict[str, Any]]:
         """List individual safety results with optional filtering."""
         query = "SELECT * FROM safety_results WHERE 1=1"
@@ -105,6 +109,8 @@ class SafetyMixin:
         if branch:
             query += " AND branch=?"
             params.append(branch)
+        if pending_review:
+            query += " AND verdict='needs_review' AND review_verdict IS NULL"
         query += " ORDER BY created_at ASC LIMIT ?"
         params.append(max(1, min(limit, 5000)))
 
@@ -124,8 +130,74 @@ class SafetyMixin:
                     rd["judge"] = json.loads(rd["judge"])
                 except Exception:
                     rd["judge"] = {}
+            rd["effective_verdict"] = rd.get("review_verdict") or rd.get("verdict")
             results.append(rd)
         return results
+
+    def get_safety_result(self, result_id: str) -> Optional[Dict[str, Any]]:
+        with self._read_conn() as c:
+            r = c.fetchone("SELECT * FROM safety_results WHERE id=?", (result_id,))
+        if not r:
+            return None
+        rd = _row(r)
+        for k in ("detectors", "judge"):
+            if isinstance(rd.get(k), str):
+                try:
+                    rd[k] = json.loads(rd[k])
+                except Exception:
+                    rd[k] = {}
+        rd["effective_verdict"] = rd.get("review_verdict") or rd.get("verdict")
+        return rd
+
+    def review_safety_result(
+        self,
+        result_id: str,
+        *,
+        verdict: str,
+        rationale: str,
+        reviewer: str,
+        reviewer_role: str = "",
+    ) -> Dict[str, Any]:
+        """Record a named reviewer's final verdict on one safety case.
+
+        The detector verdict is never overwritten. The review and its audit
+        entry are written in the same transaction, so a review cannot exist
+        without its audit trail. Re-reviewing is allowed; the audit log keeps
+        every earlier decision.
+        """
+        verdict = (verdict or "").strip().lower()
+        if verdict not in ("pass", "fail"):
+            raise ValueError("Review verdict must be 'pass' or 'fail'.")
+        rationale = (rationale or "").strip()
+        if len(rationale) < 10:
+            raise ValueError("A rationale of at least 10 characters is required.")
+        if not reviewer:
+            raise ValueError("The reviewer must be identified.")
+        now = datetime.now(timezone.utc).isoformat()
+        with self._conn() as c:
+            row = c.fetchone("SELECT * FROM safety_results WHERE id=?", (result_id,))
+            if not row:
+                raise LookupError(f"Safety result {result_id} not found")
+            prev = _row(row)
+            c.execute(
+                "UPDATE safety_results SET review_verdict=?, review_rationale=?, reviewed_by=?, reviewed_at=? WHERE id=?",
+                (verdict, rationale[:2000], reviewer, now, result_id),
+            )
+            self.add_audit_log(
+                "safety_result.reviewed",
+                actor=reviewer, actor_role=reviewer_role,
+                resource_type="safety_result", resource_id=result_id,
+                detail={
+                    "eval_run_id": prev.get("eval_run_id"),
+                    "case_key": prev.get("case_key"),
+                    "detector_verdict": prev.get("verdict"),
+                    "previous_review_verdict": prev.get("review_verdict"),
+                    "review_verdict": verdict,
+                    "rationale": rationale[:2000],
+                },
+                conn=c,
+            )
+        return self.get_safety_result(result_id)
 
     def get_safety_summary(
         self,

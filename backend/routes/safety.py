@@ -39,6 +39,11 @@ class SafetyResultItem(BaseModel):
     judge: Dict[str, Any] = Field(default_factory=dict)
     reply_excerpt: str = ""
     created_at: str
+    effective_verdict: Optional[str] = None
+    review_verdict: Optional[str] = None
+    review_rationale: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
 
 
 class SafetyRunSummaryResponse(BaseModel):
@@ -61,6 +66,7 @@ class SafetyRunSummaryResponse(BaseModel):
     figure_consistency_rate: float = 1.0
     bilingual_figure_match_rate: float = 1.0
     cases_needing_review: int = 0
+    cases_reviewed: int = 0
 
 
 @router.post(
@@ -182,6 +188,7 @@ def get_safety_summary(
         figure_consistency_rate=summary.get("figure_consistency_rate", 1.0),
         bilingual_figure_match_rate=summary.get("bilingual_figure_match_rate", 1.0),
         cases_needing_review=summary.get("cases_needing_review", 0),
+        cases_reviewed=summary.get("cases_reviewed", 0),
     )
 
 
@@ -195,6 +202,7 @@ def list_safety_result_items(
     category: Optional[str] = Query(None),
     language: Optional[str] = Query(None),
     branch: Optional[str] = Query(None),
+    pending_review: bool = Query(False, description="Only cases the detectors sent to human review that nobody has ruled on yet"),
     limit: int = Query(500, ge=1, le=5000),
     _auth: object = Depends(ui_read_auth),
 ) -> List[SafetyResultItem]:
@@ -205,8 +213,47 @@ def list_safety_result_items(
         language=language,
         branch=branch,
         limit=limit,
+        pending_review=pending_review,
     )
     return [SafetyResultItem(**it) for it in items]
+
+
+class SafetyReviewRequest(BaseModel):
+    verdict: str = Field(..., description="'pass' or 'fail' — the reviewer's final ruling on this case")
+    rationale: str = Field(..., description="Why; at least 10 characters. Shown in the audit log.")
+    reviewer_name: str = Field(..., description="Full name of the person making the ruling")
+
+
+@router.post(
+    "/results/item/{result_id}/review",
+    response_model=SafetyResultItem,
+    summary="Record a named reviewer's verdict on one safety case",
+)
+def review_safety_result_item(
+    result_id: str,
+    body: SafetyReviewRequest,
+    api_key: Optional[str] = Depends(ui_write_auth),
+) -> SafetyResultItem:
+    """Reviewer role or higher. The detector's verdict is kept; the review is audit-logged."""
+    if not api_key:
+        # Even in open mode a ruling must be attributable to a key.
+        raise HTTPException(401, "A reviewer API key is required so the ruling is attributable.")
+    if not body.reviewer_name.strip():
+        raise HTTPException(422, "reviewer_name is required.")
+    key_prefix, role = principal(api_key)
+    try:
+        item = db.review_safety_result(
+            result_id,
+            verdict=body.verdict,
+            rationale=body.rationale,
+            reviewer=f"{body.reviewer_name.strip()} ({key_prefix})",
+            reviewer_role=role,
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return SafetyResultItem(**item)
 
 
 

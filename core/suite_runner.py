@@ -259,7 +259,9 @@ async def run_suite_async(
                     eval_base = evaluate_safety_case(case_dict, resp_a_base.text)
                     base_v = eval_base["verdict"]
                     pert_v = eval_res["verdict"]
-                    flip_rate = compute_decision_flip_rate(base_v, [pert_v])
+                    # A flip is only meaningful between two decided verdicts.
+                    _undecided = "needs_review" in (base_v, pert_v)
+                    flip_rate = 0.0 if _undecided else compute_decision_flip_rate(base_v, [pert_v])
                     is_flipped = (flip_rate > 0.0)
                     stab_cv = compute_score_stability([
                         1.0 if base_v == "pass" else 0.0,
@@ -366,7 +368,9 @@ async def run_suite_async(
                         eval_b_base = evaluate_safety_case(case_dict, resp_b_base.text)
                         base_vb = eval_b_base["verdict"]
                         pert_vb = eval_res_b["verdict"]
-                        flip_rate_b = compute_decision_flip_rate(base_vb, [pert_vb])
+                        # A flip is only meaningful between two decided verdicts.
+                        _undecided = "needs_review" in (base_vb, pert_vb)
+                        flip_rate_b = 0.0 if _undecided else compute_decision_flip_rate(base_vb, [pert_vb])
                         is_flipped_b = (flip_rate_b > 0.0)
                         stab_cv_b = compute_score_stability([
                             1.0 if base_vb == "pass" else 0.0,

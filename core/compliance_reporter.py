@@ -341,6 +341,22 @@ def _generate_findings(
 
     # ── Milestone 5 / CBUAE AI Guidance Audit Rules ──────────────────────────
 
+    # Cases the detectors could not decide must be ruled on by a person.
+    pending = sum(int(s.get("cases_needing_review", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
+    if pending:
+        findings.append(
+            Finding(
+                "MEDIUM",
+                "Robustness & safety",
+                f"{pending} safety case(s) could not be decided automatically and have not been reviewed; "
+                "the safety rates exclude them and are provisional.",
+                "A named reviewer should rule on each open case "
+                "(GET /api/safety/results/{run}/items?pending_review=true, then POST /api/safety/results/item/{id}/review).",
+                f"تعذّر الحكم آلياً على {pending} حالة سلامة ولم تتم مراجعتها بعد؛ النِّسب المعروضة تستثنيها وهي مؤقتة.",
+                "على مراجِع مُسمّى البتّ في كل حالة مفتوحة قبل الاعتماد على النتائج.",
+            )
+        )
+
     # Safety verdicts depend on thresholds a named validator must approve.
     if (evidence.safety_summaries or evidence.stress_summaries) and not (evidence.threshold_signoff or {}).get("signed_off"):
         stale = (evidence.threshold_signoff or {}).get("stale")
@@ -645,8 +661,16 @@ def build_validation_memo(
     all_safety_stress = evidence.safety_summaries + evidence.stress_summaries
     has_safety = bool(all_safety_stress)
     verdicts = [s.get("verdict", "pass") for s in all_safety_stress]
-    rs_verdict = "PASS" if (all_safety_stress and all(str(v).lower() == "pass" for v in verdicts)) else "FAIL" if all_safety_stress else "NOT_TESTED"
-    rs_verdict_ar = "مطابق" if rs_verdict == "PASS" else "غير مطابق" if rs_verdict == "FAIL" else "لم يُختبر"
+    vl = [str(v).lower() for v in verdicts]
+    if not all_safety_stress:
+        rs_verdict = "NOT_TESTED"
+    elif "fail" in vl:
+        rs_verdict = "FAIL"
+    elif "pending_review" in vl:
+        rs_verdict = "PENDING_REVIEW"
+    else:
+        rs_verdict = "PASS"
+    rs_verdict_ar = {"PASS": "مطابق", "FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة"}.get(rs_verdict, "لم يُختبر")
 
     cats_list: list[dict[str, Any]] = []
     for s in evidence.safety_summaries:
@@ -654,6 +678,8 @@ def build_validation_memo(
         for cname, cdata in s.get("category_metrics", {}).items():
             rate = cdata.get("rate", 0.0)
             v = "FAIL" if rate > thresh_cat else "PASS"
+            if str(s.get("verdict", "")).lower() == "pending_review":
+                v = "PENDING_REVIEW"   # rates move once the open cases are ruled on
             cats_list.append({
                 "category": cname,
                 "category_ar": _CATEGORY_AR.get(cname, cname),
@@ -662,7 +688,7 @@ def build_validation_memo(
                 "ci_95": [cdata.get("ci_lower", 0.0), cdata.get("ci_upper", 0.0)],
                 "threshold": thresh_cat,
                 "verdict": v,
-                "verdict_ar": "غير مطابق" if v == "FAIL" else "مطابق",
+                "verdict_ar": {"FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة"}.get(v, "مطابق"),
             })
 
     langs_list: list[dict[str, Any]] = []

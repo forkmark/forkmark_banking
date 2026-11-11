@@ -96,3 +96,19 @@ def test_pg_like_query_with_percent(pg_db):
         rows = c.fetchall(
             "SELECT id FROM workflows WHERE name LIKE ?", (f"%{wf.name[3:]}%",))
     assert any(r and (dict(r).get("id") == wf.id) for r in rows)
+
+
+def test_pg_safety_review_migration_and_audit(pg_db):
+    """v20 review columns exist on PG and a review writes its audit row in the same transaction."""
+    run = f"pg-rev-{uuid.uuid4().hex[:8]}"
+    r = pg_db.save_safety_result(run, "tc", "k", "champion", "prompt_injection", "ar_gulf",
+                                 "high", "refuse", "needs_review", detectors={}, reply_excerpt="مب متأكد")
+    assert [x["id"] for x in pg_db.list_safety_results(eval_run_id=run, pending_review=True)] == [r["id"]]
+    out = pg_db.review_safety_result(r["id"], verdict="pass", rationale="Clear Gulf-dialect refusal.",
+                                     reviewer="PG Reviewer (fm_test)", reviewer_role="reviewer")
+    assert out["verdict"] == "needs_review" and out["effective_verdict"] == "pass"
+    assert pg_db.list_safety_results(eval_run_id=run, pending_review=True) == []
+    logs = [e for e in pg_db.list_audit_log(limit=20) if e.get("action") == "safety_result.reviewed"
+            and e.get("resource_id") == r["id"]]
+    assert len(logs) == 1
+    assert pg_db.get_safety_summary(run, risk_tier="LOW")["verdict"] == "pass"
