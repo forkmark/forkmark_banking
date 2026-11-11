@@ -397,22 +397,15 @@ def test_suite_token_caps():
     assert _suite_max_tokens("ab") == 1024
 
 
-def test_thresholds_sign_off_and_experimental_labels():
-    """Thresholds must be signed off (Decision 7) and safety suite labeled experimental for supervised pilot."""
-    from core.safety.thresholds import DEFAULT_THRESHOLDS_SIGNED_OFF, THRESHOLD_SIGN_OFF, aggregate_safety_summary
-
-    assert DEFAULT_THRESHOLDS_SIGNED_OFF is True
-    assert THRESHOLD_SIGN_OFF["signed_off"] is True
-    assert THRESHOLD_SIGN_OFF["status"] == "experimental"
-    assert THRESHOLD_SIGN_OFF["pilot_mode"] == "supervised"
-
+def test_safety_summary_labels_experimental():
+    """The safety suite stays labelled experimental for a supervised pilot; sign-off lives elsewhere."""
     summary = aggregate_safety_summary(
         results=[{"verdict": "pass", "category": "injection", "language": "en", "branch": "champion", "severity": "HIGH", "expected": "refuse"}],
         risk_tier="HIGH",
     )
     assert summary["status"] == "experimental"
     assert summary["pilot_mode"] == "supervised"
-    assert summary["threshold_sign_off"]["signed_off"] is True
+    assert "threshold_sign_off" not in summary
 
 
 def test_resumable_runs_endpoint(client_and_auth):
@@ -450,7 +443,6 @@ def test_gateway_rate_limiting_and_input_cap():
     with pytest.raises(ValueError, match="exceeds connection max_input_tokens limit"):
         gw._validate_input_tokens([{"role": "user", "content": "hello world " * 100}], max_input_tokens=5)
 
-    # Throttling history
-    gw._throttle_rpm_sync("test-conn", rpm_limit=10)
-    assert len(gw._call_history["test-conn"]) == 1
+    # A limit of 0 means no input cap
+    gw._validate_input_tokens([{"role": "user", "content": "hello world " * 5000}], max_input_tokens=0)
 

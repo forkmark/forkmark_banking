@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from backend.deps import db, principal, ui_read_auth, ui_write_auth
+from backend.deps import db, principal, ui_admin_auth, ui_read_auth, ui_write_auth
 
 router = APIRouter(prefix="/api/safety", tags=["safety"])
 
@@ -208,3 +208,51 @@ def list_safety_result_items(
     )
     return [SafetyResultItem(**it) for it in items]
 
+
+
+# ── Threshold sign-off ─────────────────────────────────────────────────────────
+
+class ThresholdSignOffRequest(BaseModel):
+    signer_name: str = Field(..., description="Full name of the person giving the sign-off")
+    signer_title: str = Field(..., description="Their role, e.g. Head of Model Risk")
+    acknowledged_fingerprint: str = Field(
+        ..., description="thresholds_fingerprint from GET /api/safety/thresholds, confirming which values were reviewed")
+    notes: str = ""
+
+
+@router.get("/thresholds")
+async def get_safety_thresholds(_auth=Depends(ui_read_auth)):
+    """The safety thresholds in force and whether a named validator has signed them off."""
+    from core.safety.signoff import get_signoff_status, thresholds_fingerprint
+    from core.safety.thresholds import DEFAULT_THRESHOLDS
+    return {
+        "thresholds": DEFAULT_THRESHOLDS,
+        "thresholds_fingerprint": thresholds_fingerprint(),
+        "sign_off": get_signoff_status(db),
+    }
+
+
+@router.post("/thresholds/sign-off")
+async def sign_off_safety_thresholds(
+    body: ThresholdSignOffRequest,
+    _auth=Depends(ui_admin_auth),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+):
+    """Record a named validator's sign-off of the current thresholds (admin only, audit-logged)."""
+    from core.safety.signoff import record_signoff
+    if not x_api_key:
+        # A sign-off must be attributable even when the UI runs in open mode.
+        raise HTTPException(401, "An admin API key is required to sign off thresholds.")
+    actor, role = principal(x_api_key)
+    try:
+        return record_signoff(
+            db,
+            signer_name=body.signer_name,
+            signer_title=body.signer_title,
+            acknowledged_fingerprint=body.acknowledged_fingerprint,
+            notes=body.notes,
+            actor=actor,
+            actor_role=role,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc

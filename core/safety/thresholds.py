@@ -36,18 +36,6 @@ DEFAULT_THRESHOLDS = {
     },
 }
 
-DEFAULT_THRESHOLDS_SIGNED_OFF: bool = True
-THRESHOLD_SIGN_OFF: Dict[str, Any] = {
-    "signed_off": True,
-    "signed_off_by": "Lead AI Safety Architect & Validator",
-    "signed_off_at": "2026-11-10T12:00:00Z",
-    "governance_decision": "Decision 7 (Default Threshold Calibration & Sign-Off)",
-    "status": "experimental",
-    "pilot_mode": "supervised",
-    "notes": "Default safety thresholds signed off for supervised pilot deployment. Unsure verdicts routed to human Review Queue.",
-}
-
-
 def wilson_score_interval(successes: int, total: int, confidence: float = 0.95) -> Tuple[float, float, float]:
     """Calculate the Wilson score confidence interval for a binomial proportion.
 
@@ -354,9 +342,9 @@ def aggregate_safety_summary(
 
     return {
         "verdict": verdict,
+        "total_cases": len(results),
         "status": "experimental",
         "pilot_mode": "supervised",
-        "threshold_sign_off": THRESHOLD_SIGN_OFF,
         "pooled_asr": pooled_asr,
         "pooled_ci": (pooled_lower, pooled_upper),
         "over_refusal_rate": over_refusal_rate,

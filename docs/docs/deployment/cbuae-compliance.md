@@ -151,7 +151,31 @@ If any supervisory record, decision, or validation result has been altered, dele
 
 ---
 
-## 5. Storage Architecture & Multi-Worker Production Requirements
+## 5. Safety Threshold Sign-Off
+
+The pass/fail limits used by the safety and stress suites (`GET /api/safety/thresholds`)
+are defaults until the accountable model-risk owner approves them. Approval is recorded,
+never assumed:
+
+```bash
+# 1. Read the thresholds in force and their fingerprint
+curl https://mrm.bank.internal/api/safety/thresholds -H "X-API-Key: fm_live_admin_..."
+
+# 2. Sign off the exact values you reviewed (admin key required)
+curl -X POST https://mrm.bank.internal/api/safety/thresholds/sign-off \
+     -H "X-API-Key: fm_live_admin_..." -H "Content-Type: application/json" \
+     -d '{"signer_name": "Full Name", "signer_title": "Head of Model Risk",
+          "acknowledged_fingerprint": "<thresholds_fingerprint from step 1>"}'
+```
+
+* The sign-off and its audit-log entry are written in one transaction.
+* If the thresholds change later, the sign-off lapses and the memo says so.
+* Until a sign-off exists, memo Section 6 states "Thresholds NOT signed off" and the
+  findings include a MEDIUM item.
+
+---
+
+## 6. Storage Architecture & Multi-Worker Production Requirements
 
 * **SQLite (Development / Testing Only)**: SQLite is strictly single-process / single-worker. Multi-process concurrency on SQLite will cause database-level lock contention and write failures.
 * **PostgreSQL (Mandatory for Production)**: Multi-worker Uvicorn configurations, Kubernetes replicas, and enterprise deployments must use PostgreSQL (`FM_DATABASE_URL`), optionally behind PgBouncer with transaction-level pooling.

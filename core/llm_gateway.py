@@ -18,6 +18,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -45,6 +46,67 @@ class GatewayResponse:
     cross_border: bool           # True if the call left FM_DEFAULT_REGION
 
 
+
+class RateBudgetExhausted(RuntimeError):
+    """The connection's daily request budget is used up; the run can be resumed later."""
+
+
+class _RateBudget:
+    """Per-connection request budgets: a sliding 60-second window (rpm_limit) and a
+    UTC-day counter (rpd_limit). A limit of 0 means no limit.
+
+    The lock is held only to read and update counters, never while waiting, so a
+    throttled connection cannot stall calls to other connections. After a wait the
+    budget is checked again, so concurrent callers cannot burst past the limit.
+    Counters live in this process; with several replicas each enforces its own share.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._minute: Dict[str, "deque[float]"] = {}
+        self._day: Dict[str, tuple] = {}
+
+    def _try_take(self, cid: str, rpm: int, rpd: int, now: float) -> float:
+        """Take a slot and return 0.0, or return the seconds to wait. Raises when the day is used up."""
+        with self._lock:
+            day = time.strftime("%Y-%m-%d", time.gmtime(now))
+            d, used = self._day.get(cid, (day, 0))
+            if d != day:
+                used = 0
+            if rpd > 0 and used >= rpd:
+                raise RateBudgetExhausted(
+                    f"Daily request budget for connection {cid} is used up ({rpd} requests); "
+                    "resume the run after 00:00 UTC."
+                )
+            if rpm > 0:
+                q = self._minute.setdefault(cid, deque())
+                while q and q[0] <= now - 60.0:
+                    q.popleft()
+                if len(q) >= rpm:
+                    return max(0.01, q[0] + 60.0 - now)
+                q.append(now)
+            self._day[cid] = (day, used + 1)
+            return 0.0
+
+    def acquire(self, cid: str, rpm: int, rpd: int) -> None:
+        if rpm <= 0 and rpd <= 0:
+            return
+        while True:
+            wait = self._try_take(cid, rpm, rpd, time.time())
+            if wait <= 0:
+                return
+            time.sleep(wait)
+
+    async def aacquire(self, cid: str, rpm: int, rpd: int) -> None:
+        if rpm <= 0 and rpd <= 0:
+            return
+        while True:
+            wait = self._try_take(cid, rpm, rpd, time.time())
+            if wait <= 0:
+                return
+            await asyncio.sleep(wait)
+
+
 class ModelGateway:
     """The central outbound gateway through which every model call must pass."""
 
@@ -55,7 +117,7 @@ class ModelGateway:
         self._sync_semaphores: Dict[str, threading.Semaphore] = {}
         self._lock = threading.Lock()
         self._dev_cache: Dict[str, GatewayResponse] = {}
-        self._call_history: Dict[str, List[float]] = {}
+        self._budget = _RateBudget()
 
     @property
     def db(self):
@@ -86,9 +148,9 @@ class ModelGateway:
             "azure_deployment_type": "standard",
             "inference_region": os.getenv("FM_DEFAULT_REGION", "me-central-1"),
             "max_concurrency": int(os.getenv("FM_CONNECTOR_MAX_CONCURRENCY", "4")),
-            "rpm_limit": 120,
-            "rpd_limit": 100000,
-            "max_input_tokens": 4096,
+            "rpm_limit": 0,
+            "rpd_limit": 0,
+            "max_input_tokens": 0,
             "timeout_s": 60.0,
         }
 
@@ -235,38 +297,6 @@ class ModelGateway:
                 f"Input tokens (~{approx_tokens}) exceeds connection max_input_tokens limit ({max_input_tokens})"
             )
 
-    def _throttle_rpm_sync(self, connector_id: str, rpm_limit: int) -> None:
-        if rpm_limit <= 0:
-            return
-        now = time.time()
-        with self._lock:
-            history = self._call_history.setdefault(connector_id, [])
-            cutoff = now - 60.0
-            while history and history[0] < cutoff:
-                history.pop(0)
-            if len(history) >= rpm_limit:
-                sleep_needed = 60.0 - (now - history[0]) + 0.05
-                if sleep_needed > 0:
-                    time.sleep(sleep_needed)
-            self._call_history[connector_id].append(time.time())
-
-    async def _throttle_rpm_async(self, connector_id: str, rpm_limit: int) -> None:
-        if rpm_limit <= 0:
-            return
-        now = time.time()
-        sleep_needed = 0.0
-        with self._lock:
-            history = self._call_history.setdefault(connector_id, [])
-            cutoff = now - 60.0
-            while history and history[0] < cutoff:
-                history.pop(0)
-            if len(history) >= rpm_limit:
-                sleep_needed = 60.0 - (now - history[0]) + 0.05
-        if sleep_needed > 0:
-            await asyncio.sleep(sleep_needed)
-        with self._lock:
-            self._call_history[connector_id].append(time.time())
-
     def chat(
         self,
         connector_id: Optional[str],
@@ -283,7 +313,7 @@ class ModelGateway:
         conn_info = self._resolve_connection(connector_id)
         target_model = model or conn_info.get("default_model", "gpt-4o-mini")
 
-        self._validate_input_tokens(messages, conn_info.get("max_input_tokens", 0))
+        self._validate_input_tokens(messages, int(conn_info.get("max_input_tokens") or 0))
 
         host, is_internal, cross_border = self._check_and_log_egress(
             conn_info, target_model, purpose, eval_run_id, actor
@@ -311,7 +341,7 @@ class ModelGateway:
         t_start = time.time()
 
         with sem:
-            self._throttle_rpm_sync(conn_info["connector_id"], conn_info.get("rpm_limit", 0))
+            self._budget.acquire(conn_info["connector_id"], int(conn_info.get("rpm_limit") or 0), int(conn_info.get("rpd_limit") or 0))
             for attempt in range(1, attempts + 1):
                 try:
                     raw = adapter.chat(
@@ -424,7 +454,7 @@ class ModelGateway:
         conn_info = self._resolve_connection(connector_id)
         target_model = model or conn_info.get("default_model", "gpt-4o-mini")
 
-        self._validate_input_tokens(messages, conn_info.get("max_input_tokens", 0))
+        self._validate_input_tokens(messages, int(conn_info.get("max_input_tokens") or 0))
 
         host, is_internal, cross_border = self._check_and_log_egress(
             conn_info, target_model, purpose, eval_run_id, actor
@@ -452,7 +482,7 @@ class ModelGateway:
         t_start = time.time()
 
         async with sem:
-            await self._throttle_rpm_async(conn_info["connector_id"], conn_info.get("rpm_limit", 0))
+            await self._budget.aacquire(conn_info["connector_id"], int(conn_info.get("rpm_limit") or 0), int(conn_info.get("rpd_limit") or 0))
             for attempt in range(1, attempts + 1):
                 try:
                     raw = await adapter.achat(

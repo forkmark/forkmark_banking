@@ -31,9 +31,9 @@ class ProviderCreate(BaseModel):
     licence: Optional[str] = ""
     max_concurrency: Optional[int] = 4
     timeout_s: Optional[float] = 60.0
-    rpm_limit: Optional[int] = 120
-    rpd_limit: Optional[int] = 100000
-    max_input_tokens: Optional[int] = 4096
+    rpm_limit: Optional[int] = 0       # 0 = no limit
+    rpd_limit: Optional[int] = 0       # 0 = no limit
+    max_input_tokens: Optional[int] = 0  # 0 = no limit
 
 class ProviderUpdate(BaseModel):
     name: Optional[str] = None
@@ -79,9 +79,9 @@ class ProviderResponse(BaseModel):
     licence: Optional[str] = ""
     max_concurrency: Optional[int] = 4
     timeout_s: Optional[float] = 60.0
-    rpm_limit: Optional[int] = 120
-    rpd_limit: Optional[int] = 100000
-    max_input_tokens: Optional[int] = 4096
+    rpm_limit: Optional[int] = 0       # 0 = no limit
+    rpd_limit: Optional[int] = 0       # 0 = no limit
+    max_input_tokens: Optional[int] = 0  # 0 = no limit
 
 class ProviderTestResult(BaseModel):
     ok: bool
@@ -146,9 +146,9 @@ def create_provider(body: ProviderCreate, _auth=Depends(ui_write_auth)):
         licence=body.licence or "",
         max_concurrency=body.max_concurrency or 4,
         timeout_s=body.timeout_s or 60.0,
-        rpm_limit=body.rpm_limit or 120,
-        rpd_limit=body.rpd_limit or 100000,
-        max_input_tokens=body.max_input_tokens or 4096,
+        rpm_limit=body.rpm_limit or 0,
+        rpd_limit=body.rpd_limit or 0,
+        max_input_tokens=body.max_input_tokens or 0,
     )
     # Re-fetch to get masked key fields
     return db.get_provider(result["id"]) or result

@@ -20,9 +20,9 @@ class ProvidersMixin:
                         licence: str = "",
                         max_concurrency: int = 4,
                         timeout_s: float = 60.0,
-                        rpm_limit: int = 120,
-                        rpd_limit: int = 100000,
-                        max_input_tokens: int = 4096) -> dict:
+                        rpm_limit: int = 0,
+                        rpd_limit: int = 0,
+                        max_input_tokens: int = 0) -> dict:
         """Create an LLM provider entry. API key is encrypted at rest."""
         now = datetime.now(timezone.utc).isoformat()
         pid = str(uuid.uuid4())
@@ -57,7 +57,7 @@ class ProvidersMixin:
                  deployment_kind, model_family or "", default_model or "",
                  azure_deployment or "", api_version or "", azure_deployment_type or "",
                  inference_region or "", hosting or "bank_self_hosted", vendor_name or "", licence or "",
-                 max_concurrency or 4, timeout_s or 60.0, rpm_limit or 120, rpd_limit or 100000, max_input_tokens or 4096))
+                 max_concurrency or 4, timeout_s or 60.0, max(0, int(rpm_limit or 0)), max(0, int(rpd_limit or 0)), max(0, int(max_input_tokens or 0))))
         return self.get_provider(pid) or {
             "id": pid, "name": name, "provider_type": provider_type,
             "base_url": base_url, "is_default": bool(is_default),
@@ -237,9 +237,9 @@ class ProvidersMixin:
                  rd.get("licence", ""),
                  rd.get("max_concurrency", 4),
                  rd.get("timeout_s", 60.0),
-                 rd.get("rpm_limit", 120),
-                 rd.get("rpd_limit", 100000),
-                 rd.get("max_input_tokens", 4096),
+                 rd.get("rpm_limit") or 0,
+                 rd.get("rpd_limit") or 0,
+                 rd.get("max_input_tokens") or 0,
                  provider_id))
         return self.get_provider(provider_id)
         return self.get_provider(provider_id)

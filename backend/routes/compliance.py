@@ -29,6 +29,7 @@ class _DBProxy:
 
 db = _DBProxy()
 from core.compliance_reporter import ComplianceReporter, ValidationEvidence
+from core.safety.signoff import get_signoff_status
 from core.finance_evaluators import BiasDisparityEvaluator, NumericalFidelityEvaluator
 from core.regulatory_frameworks import RegulatoryFramework
 from core.statistical_analyzer import analyze, analyze_batch
@@ -132,6 +133,7 @@ def _build_evidence(body: ComplianceReportRequest) -> ValidationEvidence:
         ]
 
     return ValidationEvidence(
+        threshold_signoff=get_signoff_status(db),
         statistical_results=stat_results,
         bias_results=bias_results,
         numerical_fidelity_results=fidelity_results,
@@ -317,6 +319,7 @@ def _build_evidence_from_model(model_id: str) -> ValidationEvidence:
         stress_summaries=stress_summaries,
         monitoring_runs=monitoring_runs,
         provenance=prov_dict,
+        threshold_signoff=get_signoff_status(db),
     )
 
 

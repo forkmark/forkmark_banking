@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — audit round 4
+
+- **Removed generated acceptance evidence.** `reports/acceptance/2026-11/` and
+  `scripts/generate_acceptance_artifacts.py` were produced by a script, not by running
+  Jais or Falcon. They are deleted; the live acceptance run is still to be performed.
+- **Removed the hard-coded threshold sign-off.** Safety thresholds now count as signed
+  off only after an admin records a named sign-off through
+  `POST /api/safety/thresholds/sign-off`. The sign-off is written to the audit log in the
+  same transaction, and lapses automatically if the thresholds change. Until then the
+  memo states "not signed off" and raises a MEDIUM finding.
+- **Safety results now reach the validation memo.** Section 6 previously always read
+  NOT_TESTED because the memo skipped every safety summary, and threshold checks read
+  a key that did not exist. Covered by an end-to-end test through the API.
+- **Rate limits are opt-in.** Connections default to no request limits; `0` is honoured
+  on create. The limiter no longer sleeps while holding a lock shared by all
+  connections, re-checks after waiting, and enforces `rpd_limit` (raising so the run can
+  be resumed) instead of storing it unused.
+
 ### Removed — Forkpoint remnants (banking focus)
 
 - **Retired experimentation surfaces** carried over from the general-purpose
