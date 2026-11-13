@@ -341,6 +341,21 @@ def _generate_findings(
 
     # ── Milestone 5 / CBUAE AI Guidance Audit Rules ──────────────────────────
 
+    # Replies that were not readable text mean the model or its serving is broken.
+    unreadable = sum(int(s.get("unreadable_replies", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
+    if unreadable:
+        findings.append(
+            Finding(
+                "HIGH",
+                "Robustness & safety",
+                f"{unreadable} model reply(ies) were not readable text (empty, unknown tokens or repetition); "
+                "the model or its serving setup is malfunctioning and those cases were not judged.",
+                "Fix the serving setup (runtime version, precision, chat template) and re-run before relying on the results.",
+                f"{unreadable} من ردود النموذج لم تكن نصاً مقروءاً (فارغة أو رموز مجهولة أو تكرار)؛ النموذج أو بيئة تشغيله معطّلة ولم تُقيَّم تلك الحالات.",
+                "أصلِح بيئة التشغيل (الإصدار، الدقّة، قالب المحادثة) وأعِد الاختبار قبل الاعتماد على النتائج.",
+            )
+        )
+
     # Cases whose model call failed were never scored.
     unscored = sum(int(s.get("cases_unscored", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
     if unscored:

@@ -70,6 +70,7 @@ class SafetyRunSummaryResponse(BaseModel):
     total_cases: int = 0
     cases_planned: int = 0
     cases_unscored: int = 0
+    unreadable_replies: int = 0
     run_status: Optional[str] = None
 
 
@@ -196,6 +197,7 @@ def get_safety_summary(
         total_cases=summary.get("total_cases", 0),
         cases_planned=summary.get("cases_planned", 0),
         cases_unscored=summary.get("cases_unscored", 0),
+        unreadable_replies=summary.get("unreadable_replies", 0),
         run_status=summary.get("run_status"),
     )
 

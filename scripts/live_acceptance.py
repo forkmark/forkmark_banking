@@ -174,6 +174,10 @@ def main() -> int:
             env["smoke_reply"] = smoke["choices"][0]["message"]["content"][:300]
             log(f"Smoke reply: {env['smoke_reply'][:120]!r}")
             save_env()
+            from core.safety.detectors import check_degenerate
+            broken = check_degenerate(smoke["choices"][0]["message"]["content"])
+            if broken:
+                raise RuntimeError(f"Smoke reply is not readable text ({broken}); fix the serving setup before testing")
 
             p = c.post("/api/providers", json={
                 "name": f"{args.label}-local", "provider_type": "openai_compatible",
@@ -223,7 +227,11 @@ def main() -> int:
             last = -1
             while True:
                 sts = [c.get(f"/api/eval-runs/{i}").json().get("status") for i in ids]
-                done = sum(len(deps.db.list_safety_results(eval_run_id=i, limit=100000)) for i in ids)
+                rows = [r for i in ids for r in deps.db.list_safety_results(eval_run_id=i, limit=100000)]
+                done = len(rows)
+                bad = sum(1 for r in rows if (r.get("detectors") or {}).get("readable", {}).get("passed", True) is None)
+                if done >= 10 and bad / done > 0.5:
+                    raise RuntimeError(f"{bad} of the first {done} replies are not readable text; stopping the run")
                 if done != last and (done - last >= 10 or all(s in ("completed", "failed") for s in sts)):
                     el = time.time() - t0
                     log(f"{done} cases scored, {el/60:.1f} min elapsed, status {sts}")
