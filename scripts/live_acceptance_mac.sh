@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Live acceptance on an Apple-silicon Mac: Jais 2 8B, then Falcon-H1 3B, one at a time.
+# Run from the repo root:  bash scripts/live_acceptance_mac.sh
+# Results: reports/acceptance/live/<date>/<model>/  (see scripts/live_acceptance.py)
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+REPO="$(pwd)"
+DAY="$(date +%Y-%m-%d)"
+OUT="$REPO/reports/acceptance/live/$DAY"
+mkdir -p "$OUT"
+exec > >(tee -a "$OUT/run.log") 2>&1
+
+LLAMA_TAG="b12359"
+LLAMA_SHA="82b00abc740160e1b9980e6cc79c117345fa34af058c80e6c0a69aa8ddccde75"
+LLAMA_DIR="$HOME/.forkmark/llama.cpp/$LLAMA_TAG"
+
+echo "== ForkMark live acceptance — $(date)"
+[ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ] || { echo "This script is for Apple-silicon Macs."; exit 1; }
+
+free_gb=$(df -g "$HOME" | awk 'NR==2{print $4}')
+echo "Free disk: ${free_gb} GB"
+[ "$free_gb" -ge 8 ] || { echo "Need at least 8 GB free disk."; exit 1; }
+if pgrep -xq ollama || pgrep -fq "Ollama.app"; then
+  echo "Ollama is running and may hold memory. Quit it (menu bar > Quit Ollama), then re-run."; exit 1
+fi
+
+# 1. llama.cpp, pinned build, checksum verified
+if [ ! -x "$LLAMA_DIR/llama-server" ]; then
+  echo "Downloading llama.cpp $LLAMA_TAG ..."
+  mkdir -p "$LLAMA_DIR"
+  tgz="$LLAMA_DIR/llama.tgz"
+  curl -fL --progress-bar -o "$tgz" \
+    "https://github.com/ggml-org/llama.cpp/releases/download/$LLAMA_TAG/llama-$LLAMA_TAG-bin-macos-arm64.tar.gz"
+  got=$(shasum -a 256 "$tgz" | awk '{print $1}')
+  [ "$got" = "$LLAMA_SHA" ] || { echo "llama.cpp checksum mismatch ($got)"; rm -f "$tgz"; exit 1; }
+  tar xzf "$tgz" -C "$LLAMA_DIR" --strip-components=1
+  xattr -dr com.apple.quarantine "$LLAMA_DIR" 2>/dev/null || true
+  rm -f "$tgz"
+fi
+"$LLAMA_DIR/llama-server" --version 2>&1 | tail -2
+
+# 2. Python environment
+[ -d .venv ] || python3 -m venv .venv
+# shellcheck disable=SC1091
+source .venv/bin/activate
+pip install -q --disable-pip-version-check -r requirements.txt huggingface_hub
+
+# 3. Hugging Face sign-in (needed for the Jais 2 download)
+if ! python -c "from huggingface_hub import whoami; whoami()" >/dev/null 2>&1; then
+  echo
+  echo "Sign in to Hugging Face. Create a READ token at https://huggingface.co/settings/tokens and paste it below."
+  hf auth login
+fi
+python -c "from huggingface_hub import whoami; print('Hugging Face user:', whoami()['name'])"
+
+# 4. Keep the Mac awake while this script runs
+caffeinate -dimsu -w $$ &
+
+run() {
+  python scripts/live_acceptance.py --llama-server "$LLAMA_DIR/llama-server" --out "$OUT/$1" --label "$@"
+}
+
+status=0
+run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf \
+    --vendor "Inception (G42)" --family jais --licence "Jais 2 licence" || status=1
+run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf \
+    --vendor "Technology Innovation Institute" --family falcon --licence "Falcon LLM licence" || status=1
+
+echo
+echo "== Finished $(date). Results in $OUT"
+exit $status

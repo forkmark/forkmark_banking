@@ -67,6 +67,7 @@ class SafetyRunSummaryResponse(BaseModel):
     bilingual_figure_match_rate: float = 1.0
     cases_needing_review: int = 0
     cases_reviewed: int = 0
+    total_cases: int = 0
 
 
 @router.post(
@@ -189,6 +190,7 @@ def get_safety_summary(
         bilingual_figure_match_rate=summary.get("bilingual_figure_match_rate", 1.0),
         cases_needing_review=summary.get("cases_needing_review", 0),
         cases_reviewed=summary.get("cases_reviewed", 0),
+        total_cases=summary.get("total_cases", 0),
     )
 
 
