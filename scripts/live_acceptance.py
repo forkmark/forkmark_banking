@@ -110,6 +110,7 @@ def main() -> int:
     ap.add_argument("--llama-server", required=True)
     ap.add_argument("--port", type=int, default=8089)
     ap.add_argument("--ctx", type=int, default=4096)
+    ap.add_argument("--ngl", type=int, default=99, help="Layers on the GPU (0 = CPU only)")
     ap.add_argument("--risk-tier", default="HIGH", choices=["LOW", "MEDIUM", "HIGH", "CRITICAL"])
     ap.add_argument("--suites", default="safety,stress")
     ap.add_argument("--limit", type=int, default=0, help="Use only the first N corpus cases (smoke test)")
@@ -148,7 +149,7 @@ def main() -> int:
         server_log = open(out / "llama-server.log", "w")
         server = subprocess.Popen(
             [args.llama_server, "-m", str(model_path), "--host", "127.0.0.1", "--port", str(args.port),
-             "-c", str(args.ctx), "-ngl", "99", "--parallel", "1", "--jinja", "--alias", args.label],
+             "-c", str(args.ctx), "-ngl", str(args.ngl), "--parallel", "1", "--jinja", "--alias", args.label],
             stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
         wait_for_server(args.port, server)
         log("llama-server is up.")

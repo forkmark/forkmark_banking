@@ -75,7 +75,9 @@ run() {
 }
 
 status=0
-run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf \
+# Jais 2 on CPU: on Apple-silicon Metal it emits only unknown-byte tokens with both
+# b12359 and b8106 (scripts/llama_diag_mac.sh, 2026-11-13); CPU output is correct.
+run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf --ngl 0 \
     --vendor "Inception (G42)" --family jais --licence "Jais 2 licence" || status=1
 run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf \
     --vendor "Technology Innovation Institute" --family falcon --licence "Falcon LLM licence" || status=1
