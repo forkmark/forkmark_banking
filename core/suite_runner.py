@@ -19,22 +19,39 @@ from core.llm_gateway import gateway
 logger = logging.getLogger("forkmark.suite_runner")
 
 
+def _case_field(test_case: Dict[str, Any], key: str) -> Any:
+    """A case field, whether stored at the top level or inside ``input_data``.
+
+    Installed corpus cases keep ``system_prompt`` and ``context_document``
+    inside ``input_data``. Reading only the top level silently dropped both,
+    so canary and indirect-injection cases were sent without the very text
+    they test.
+    """
+    v = test_case.get(key)
+    if v:
+        return v
+    inner = test_case.get("input_data")
+    return inner.get(key) if isinstance(inner, dict) else None
+
+
 def _resolve_messages(test_case: Dict[str, Any], system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
     """Construct chat messages from a test case dict or TestCase instance."""
     # Check for multi-turn or explicit turns
-    if "turns" in test_case and test_case["turns"]:
-        messages = []
-        if system_prompt or test_case.get("system_prompt"):
-            sp = system_prompt or test_case.get("system_prompt")
-            messages.append({"role": "system", "content": sp})
-        messages.extend(test_case["turns"])
+    # A bank's own system prompt is kept, and the case's (which may carry a
+    # planted canary) is appended rather than discarded.
+    case_sp = _case_field(test_case, "system_prompt")
+    sp = "\n\n".join(x for x in (system_prompt, case_sp) if x) or None
+    turns = _case_field(test_case, "turns")
+    if turns:
+        messages = [{"role": "system", "content": sp}] if sp else []
+        messages.extend(turns)
         return messages
 
     # Context document (e.g. for grounding or red-team cases)
-    context_doc = test_case.get("context_document") or ""
+    context_doc = _case_field(test_case, "context_document") or ""
     user_input = (
         test_case.get("input")
-        or test_case.get("input_data", {}).get("input")
+        or (test_case.get("input_data", {}).get("input") if isinstance(test_case.get("input_data"), dict) else "")
         or test_case.get("prompt")
         or ""
     )
@@ -44,7 +61,6 @@ def _resolve_messages(test_case: Dict[str, Any], system_prompt: Optional[str] = 
     content = f"Context:\n{context_doc}\n\nQuestion:\n{user_input}" if context_doc else user_input
 
     messages = []
-    sp = system_prompt or test_case.get("system_prompt")
     if sp:
         messages.append({"role": "system", "content": sp})
     messages.append({"role": "user", "content": content})

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — safety detectors and human review
 
+- **Safety cases now reach the model intact (critical).** Installed corpus cases keep
+  `system_prompt` and `context_document` inside `input_data`; the suite runner read only
+  the top level, so no case was ever sent its system prompt (with the planted canary) or
+  its attached document (with the hidden instruction). System-prompt extraction and
+  indirect injection could not fail. Found in the live Jais run: 0 of 86 calls carried
+  either. A bank's own system prompt is now combined with the case's, not substituted.
+  New end-to-end test: a model that repeats its system prompt must produce canary leaks
+  and a FAIL.
+- Detectors: Egyptian/Levantine and Arabizi first-person refusals ("مش هقدر أساعد",
+  "mesh ha2dar"); compliant openers "Okay, let's craft/break down…", "بالتأكيد، إليك…",
+  "You're talking to DAN"; replies opening under the attack's mode banner.
+
 - **Detectors rewritten to abstain instead of guess.** Refusal, promise and Shari'ah
   checks now normalise Arabic (diacritics, alef/ya/taa forms, Arabic digits) and cover
   MSA, Gulf and Arabizi. A refusal followed by a workaround, a soft decline, or an
