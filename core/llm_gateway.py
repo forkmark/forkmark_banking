@@ -349,7 +349,7 @@ class ModelGateway:
                         model=target_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        timeout=60.0,
+                        timeout=float(conn_info.get("timeout_s") or 60.0),
                         transport=self._transport,
                     )
                     resp = GatewayResponse(
@@ -490,7 +490,7 @@ class ModelGateway:
                         model=target_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        timeout=60.0,
+                        timeout=float(conn_info.get("timeout_s") or 60.0),
                         transport=self._transport,
                     )
                     resp = GatewayResponse(

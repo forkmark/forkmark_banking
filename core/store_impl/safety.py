@@ -235,5 +235,22 @@ class SafetyMixin:
 
         tier = tier or "HIGH"
         from core.safety.thresholds import aggregate_safety_summary
-        return aggregate_safety_summary(results, risk_tier=tier, overrides=thresh_overrides)
+        summary = aggregate_safety_summary(results, risk_tier=tier, overrides=thresh_overrides)
+
+        # Cases whose model call failed leave no result row. A finished run that
+        # scored fewer cases than it was given is incomplete, never a pass.
+        with self._read_conn() as c:
+            er = c.fetchone("SELECT status, total_cases FROM eval_runs WHERE id=?", (eval_run_id,))
+        if er:
+            status = (er["status"] or "").lower()
+            planned = int(er["total_cases"] or 0)
+            scored = sum(1 for r in results if (r.get("branch") or "champion") == "champion")
+            finished = status in ("completed", "completed_with_errors", "failed")
+            unscored = max(0, planned - scored) if finished else 0
+            summary["run_status"] = status
+            summary["cases_planned"] = planned
+            summary["cases_unscored"] = unscored
+            if unscored and summary.get("verdict") in ("pass", "pending_review"):
+                summary["verdict"] = "incomplete"
+        return summary
 

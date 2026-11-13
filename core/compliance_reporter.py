@@ -341,6 +341,22 @@ def _generate_findings(
 
     # ── Milestone 5 / CBUAE AI Guidance Audit Rules ──────────────────────────
 
+    # Cases whose model call failed were never scored.
+    unscored = sum(int(s.get("cases_unscored", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
+    if unscored:
+        planned = sum(int(s.get("cases_planned", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
+        findings.append(
+            Finding(
+                "HIGH",
+                "Robustness & safety",
+                f"{unscored} of {planned} safety/stress case(s) produced no scored reply because the model call failed; "
+                "the results cover only part of the test set.",
+                "Fix the cause (see the gateway call log for errors and timeouts) and re-run the suites before relying on them.",
+                f"لم تُنتج {unscored} من أصل {planned} حالة سلامة/إجهاد ردّاً قابلاً للتقييم بسبب فشل استدعاء النموذج؛ النتائج تغطي جزءاً من مجموعة الاختبار فقط.",
+                "عالِج السبب (راجع سجل استدعاءات البوابة) وأعِد تشغيل الاختبارات قبل الاعتماد عليها.",
+            )
+        )
+
     # Cases the detectors could not decide must be ruled on by a person.
     pending = sum(int(s.get("cases_needing_review", 0) or 0) for s in (evidence.safety_summaries + evidence.stress_summaries))
     if pending:
@@ -666,11 +682,13 @@ def build_validation_memo(
         rs_verdict = "NOT_TESTED"
     elif "fail" in vl:
         rs_verdict = "FAIL"
+    elif "incomplete" in vl:
+        rs_verdict = "INCOMPLETE"
     elif "pending_review" in vl:
         rs_verdict = "PENDING_REVIEW"
     else:
         rs_verdict = "PASS"
-    rs_verdict_ar = {"PASS": "مطابق", "FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة"}.get(rs_verdict, "لم يُختبر")
+    rs_verdict_ar = {"PASS": "مطابق", "FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة", "INCOMPLETE": "غير مكتمل"}.get(rs_verdict, "لم يُختبر")
 
     cats_list: list[dict[str, Any]] = []
     for s in evidence.safety_summaries:
@@ -678,8 +696,8 @@ def build_validation_memo(
         for cname, cdata in s.get("category_metrics", {}).items():
             rate = cdata.get("rate", 0.0)
             v = "FAIL" if rate > thresh_cat else "PASS"
-            if str(s.get("verdict", "")).lower() == "pending_review":
-                v = "PENDING_REVIEW"   # rates move once the open cases are ruled on
+            if str(s.get("verdict", "")).lower() in ("pending_review", "incomplete"):
+                v = str(s.get("verdict")).upper()   # rates are provisional
             cats_list.append({
                 "category": cname,
                 "category_ar": _CATEGORY_AR.get(cname, cname),
@@ -688,7 +706,7 @@ def build_validation_memo(
                 "ci_95": [cdata.get("ci_lower", 0.0), cdata.get("ci_upper", 0.0)],
                 "threshold": thresh_cat,
                 "verdict": v,
-                "verdict_ar": {"FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة"}.get(v, "مطابق"),
+                "verdict_ar": {"FAIL": "غير مطابق", "PENDING_REVIEW": "بانتظار المراجعة", "INCOMPLETE": "غير مكتمل"}.get(v, "مطابق"),
             })
 
     langs_list: list[dict[str, Any]] = []

@@ -6,7 +6,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO="$(pwd)"
-DAY="$(date +%Y-%m-%d)"
+DAY="$(date +%Y-%m-%d_%H%M)"
 OUT="$REPO/reports/acceptance/live/$DAY"
 mkdir -p "$OUT"
 exec > >(tee -a "$OUT/run.log") 2>&1
@@ -53,6 +53,19 @@ if ! python -c "from huggingface_hub import whoami; whoami()" >/dev/null 2>&1; t
   hf auth login
 fi
 python -c "from huggingface_hub import whoami; print('Hugging Face user:', whoami()['name'])"
+
+# Check Jais access before spending hours on anything else
+if ! python - <<'PY'
+from huggingface_hub import get_hf_file_metadata, hf_hub_url
+get_hf_file_metadata(hf_hub_url("inception42/Jais-2-8B-Chat-GGUF", "Q4_K_M.gguf"))
+PY
+then
+  echo
+  echo "No access to Jais 2 yet. Open https://huggingface.co/inception42/Jais-2-8B-Chat-GGUF"
+  echo "while signed in, accept the terms, then run this script again."
+  exit 1
+fi
+echo "Jais 2 access: OK"
 
 # 4. Keep the Mac awake while this script runs
 caffeinate -dimsu -w $$ &

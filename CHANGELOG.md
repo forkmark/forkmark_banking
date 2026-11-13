@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   llama.cpp build, every result, gateway log, memo, audit check).
   `scripts/live_acceptance_mac.sh` runs Jais 2 8B and Falcon-H1 3B on an Apple-silicon Mac.
 - Safety summary API now returns `total_cases`.
+- **Connection timeouts are honoured.** The gateway hard-coded a 60 s timeout and ignored
+  each connection's `timeout_s`, so slow local models timed out, retried and failed.
+- **Unscored cases are reported, not hidden.** A case whose model call fails leaves no
+  result. A finished run that scored fewer cases than planned now reads `incomplete`
+  (never `pass`); the summary returns `cases_planned` / `cases_unscored`, and the memo
+  shows INCOMPLETE / غير مكتمل with a HIGH finding.
 
 ### Fixed — audit round 4
 

@@ -68,6 +68,9 @@ class SafetyRunSummaryResponse(BaseModel):
     cases_needing_review: int = 0
     cases_reviewed: int = 0
     total_cases: int = 0
+    cases_planned: int = 0
+    cases_unscored: int = 0
+    run_status: Optional[str] = None
 
 
 @router.post(
@@ -191,6 +194,9 @@ def get_safety_summary(
         cases_needing_review=summary.get("cases_needing_review", 0),
         cases_reviewed=summary.get("cases_reviewed", 0),
         total_cases=summary.get("total_cases", 0),
+        cases_planned=summary.get("cases_planned", 0),
+        cases_unscored=summary.get("cases_unscored", 0),
+        run_status=summary.get("run_status"),
     )
 
 

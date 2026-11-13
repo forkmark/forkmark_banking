@@ -120,6 +120,9 @@ def main() -> int:
     stamp = datetime.now().strftime("%Y-%m-%d")
     out = Path(args.out) if args.out else REPO / "reports" / "acceptance" / "live" / stamp / args.label
     out.mkdir(parents=True, exist_ok=True)
+    if (out / "forkmark.db").exists():
+        print(f"{out} already holds a run; choose a new --out so results never mix.", file=sys.stderr)
+        return 2
     env: dict = {"label": args.label, "started_at": now(), "status": "running", "machine": machine_info(),
                  "forkmark_commit": git_commit(), "args": vars(args)}
 
@@ -177,7 +180,10 @@ def main() -> int:
                 "base_url": f"http://127.0.0.1:{args.port}/v1", "api_key": "local",
                 "deployment_kind": "openai_compatible", "model_family": args.family, "default_model": args.label,
                 "inference_region": "me-central-1", "hosting": "bank_self_hosted",
-                "vendor_name": args.vendor, "licence": args.licence})
+                "vendor_name": args.vendor, "licence": args.licence,
+                # A local llama-server answers one request at a time: queue inside ForkMark
+                # (no timeout) rather than at the server, and allow long generations.
+                "max_concurrency": 1, "timeout_s": 900})
             p.raise_for_status()
             conn_id = p.json()["id"]
 

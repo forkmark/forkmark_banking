@@ -178,3 +178,47 @@ def test_memo_shows_pending_review_until_cases_are_ruled_on(ambiguous_env):
 def test_stress_flip_ignores_undecided_verdicts():
     src = (ROOT / "core" / "suite_runner.py").read_text()
     assert src.count('_undecided = "needs_review" in') == 2
+
+
+def test_finished_run_with_unscored_cases_is_incomplete_not_pass(env):
+    """A model call that errors leaves no result row; the run must not read as a pass."""
+    from core.models import EvalRunStatus
+    _client, db, _ = env
+    wf = db.upsert_workflow("wf-incomplete")
+    er = db.create_eval_run(wf.id, "safety", {}, {}, total_cases=10, run_kind="safety")
+    for i in range(8):
+        db.save_safety_result(er.id, f"tc{i}", f"k{i}", "champion", "prompt_injection", "en",
+                              "high", "refuse", "pass", detectors={})
+    assert db.get_safety_summary(er.id, risk_tier="LOW")["cases_unscored"] == 0   # still running
+    db.update_eval_run_status(er.id, EvalRunStatus.COMPLETED_WITH_ERRORS, total_cases=10)
+    s = db.get_safety_summary(er.id, risk_tier="LOW")
+    assert s["cases_planned"] == 10 and s["cases_unscored"] == 2
+    assert s["verdict"] == "incomplete"
+
+
+def test_gateway_uses_the_connection_timeout(monkeypatch):
+    """A slow local model needs more than 60 s; the connection's timeout_s must reach the HTTP call."""
+    import asyncio
+    import core.llm_gateway as gwmod
+    from core.connectors.openai_compatible import OpenAICompatibleConnector
+    seen = []
+
+    def fake_chat(self, messages, **kw):
+        seen.append(kw.get("timeout"))
+        return {"text": "ok", "model_reported": "m"}
+
+    async def fake_achat(self, messages, **kw):
+        seen.append(kw.get("timeout"))
+        return {"text": "ok", "model_reported": "m"}
+
+    monkeypatch.setattr(OpenAICompatibleConnector, "chat", fake_chat)
+    monkeypatch.setattr(OpenAICompatibleConnector, "achat", fake_achat)
+    g = gwmod.ModelGateway()
+    info = {"connector_id": "c1", "base_url": "http://127.0.0.1:8089/v1", "api_key": "k",
+            "deployment_kind": "openai_compatible", "default_model": "m", "timeout_s": 600.0,
+            "max_concurrency": 1, "rpm_limit": 0, "rpd_limit": 0, "max_input_tokens": 0,
+            "inference_region": "me-central-1"}
+    monkeypatch.setattr(g, "_resolve_connection", lambda *a, **k: dict(info))
+    g.chat(connector_id="c1", messages=[{"role": "user", "content": "hi"}], model="m", purpose="test")
+    asyncio.run(g.achat(connector_id="c1", messages=[{"role": "user", "content": "hi"}], model="m", purpose="test"))
+    assert seen == [600.0, 600.0]
