@@ -185,6 +185,8 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8089)
     ap.add_argument("--ctx", type=int, default=4096)
     ap.add_argument("--ngl", type=int, default=99, help="Layers on the GPU (0 = CPU only)")
+    ap.add_argument("--parallel", type=int, default=1,
+                    help="Requests the model server handles at once (and cases ForkMark runs at once)")
     ap.add_argument("--risk-tier", default="HIGH", choices=["LOW", "MEDIUM", "HIGH", "CRITICAL"])
     ap.add_argument("--suites", default="safety,stress")
     ap.add_argument("--limit", type=int, default=0, help="Use only the first N corpus cases (smoke test)")
@@ -230,7 +232,7 @@ def main() -> int:
         server_log = open(out / "llama-server.log", "w")
         server = subprocess.Popen(
             [args.llama_server, "-m", str(model_path), "--host", "127.0.0.1", "--port", str(args.port),
-             "-c", str(args.ctx), "-ngl", str(args.ngl), "--parallel", "1", "--jinja", "--alias", args.label],
+             "-c", str(args.ctx * args.parallel), "-ngl", str(args.ngl), "--parallel", str(args.parallel), "--jinja", "--alias", args.label],
             stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
         wait_for_server(args.port, server)
         log("llama-server is up.")
@@ -238,6 +240,7 @@ def main() -> int:
         # Fresh evidence database for this run; nothing shared with any other run.
         os.environ["FM_DB_PATH"] = str(out / "forkmark.db")
         os.environ.setdefault("FM_REQUIRE_UI_AUTH", "true")
+        os.environ["FM_SUITE_CONCURRENCY"] = str(args.parallel)
         sys.path.insert(0, str(REPO))
         from fastapi.testclient import TestClient
         import backend.deps as deps
@@ -269,7 +272,7 @@ def main() -> int:
                 "vendor_name": args.vendor, "licence": args.licence,
                 # A local llama-server answers one request at a time: queue inside ForkMark
                 # (no timeout) rather than at the server, and allow long generations.
-                "max_concurrency": 1, "timeout_s": 900})
+                "max_concurrency": args.parallel, "timeout_s": 900})
             p.raise_for_status()
             conn_id = p.json()["id"]
 

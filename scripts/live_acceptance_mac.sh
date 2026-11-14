@@ -6,6 +6,7 @@
 set -euo pipefail
 WHICH="${1:-both}"
 SUITES="${SUITES:-safety,stress}"
+PARALLEL="${PARALLEL:-4}"   # requests answered at once; ~2x faster than 1 on the same machine
 case "$WHICH" in jais|falcon|both) ;; *) echo "usage: $0 [jais|falcon|both]"; exit 1;; esac
 
 cd "$(dirname "$0")/.."
@@ -13,7 +14,7 @@ REPO="$(pwd)"
 DAY="$(date +%Y-%m-%d_%H%M)"
 OUT="$REPO/reports/acceptance/live/$DAY"
 mkdir -p "$OUT"
-exec > >(tee -a "$OUT/run.log") 2>&1
+exec > >(tee -a "$OUT/run_$WHICH.log") 2>&1
 
 LLAMA_TAG="b12359"
 LLAMA_SHA="82b00abc740160e1b9980e6cc79c117345fa34af058c80e6c0a69aa8ddccde75"
@@ -75,15 +76,15 @@ echo "Jais 2 access: OK"
 caffeinate -dimsu -w $$ &
 
 run() {
-  python scripts/live_acceptance.py --llama-server "$LLAMA_DIR/llama-server" --suites "$SUITES" --out "$OUT/$1" --label "$@"
+  python scripts/live_acceptance.py --llama-server "$LLAMA_DIR/llama-server" --suites "$SUITES" --parallel "$PARALLEL" --out "$OUT/$1" --label "$@"
 }
 
 status=0
 # Jais 2 on CPU: on Apple-silicon Metal it emits only unknown-byte tokens with both
 # b12359 and b8106 (scripts/llama_diag_mac.sh, 2026-11-13); CPU output is correct.
-[ "$WHICH" = falcon ] || run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf --ngl 0 \
+[ "$WHICH" = falcon ] || run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf --ngl 0 --port 8089 \
     --vendor "Inception (G42)" --family jais --licence "Jais 2 licence" || status=1
-[ "$WHICH" = jais ] || run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf \
+[ "$WHICH" = jais ] || run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf --port 8090 \
     --vendor "Technology Innovation Institute" --family falcon --licence "Falcon LLM licence" || status=1
 
 echo

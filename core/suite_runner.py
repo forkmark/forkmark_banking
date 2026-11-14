@@ -9,6 +9,7 @@ Centralizes test case execution through the LLM gateway, supporting:
 from __future__ import annotations
 
 import asyncio
+import os
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -125,11 +126,12 @@ async def run_suite_async(
         db.update_eval_run_status, eval_run_id, EvalRunStatus.RUNNING, total_cases=len(test_cases)
     )
 
-    for tc_idx, tc in enumerate(test_cases):
+    async def _one_case(tc_idx: int, tc: Dict[str, Any]) -> None:
+        nonlocal fingerprint_recorded
         label = tc.get("label") or tc.get("id") or f"case_{tc_idx}"
         tc_id = tc.get("id") or label
         if resume and (label in completed_keys or tc_id in completed_keys):
-            continue
+            return
 
         tc_input = tc.get("input_data") or {"input": tc.get("input", "")}
         if not isinstance(tc_input, dict):
@@ -452,6 +454,26 @@ async def run_suite_async(
             )
 
         await asyncio.to_thread(db.complete_run, run.id)
+
+    # Cases are independent. FM_SUITE_CONCURRENCY > 1 runs several at once (a local
+    # llama-server with --parallel N answers N requests faster in total than one by
+    # one); the connector's own max_concurrency still caps calls at the gateway.
+    concurrency = max(1, int(os.environ.get("FM_SUITE_CONCURRENCY", "1") or 1))
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _guarded(tc_idx: int, tc: Dict[str, Any]) -> None:
+        async with sem:
+            try:
+                await _one_case(tc_idx, tc)
+            except Exception as exc:  # one broken case must not abort the others
+                label = tc.get("label") or tc.get("id") or f"case_{tc_idx}"
+                errors.append(f"[{label}] {exc}")
+
+    if concurrency == 1:
+        for tc_idx, tc in enumerate(test_cases):
+            await _guarded(tc_idx, tc)
+    else:
+        await asyncio.gather(*(_guarded(i, tc) for i, tc in enumerate(test_cases)))
 
     error_count = len(errors)
     total_count = len(test_cases)

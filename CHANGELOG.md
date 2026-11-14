@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — safety detectors and human review
 
+- **Suites can run several cases at once.** `FM_SUITE_CONCURRENCY` (default 1, unchanged
+  behaviour) runs that many cases in parallel; the connector's `max_concurrency` still caps
+  calls at the gateway, and one broken case no longer aborts the rest. Same verdicts as
+  sequential (tested). The live runner's `--parallel N` sets llama-server slots, the
+  connector cap and suite concurrency together; the Mac script defaults to 4 and gives each
+  model its own port so Jais and Falcon can run side by side. Measured 2.3x throughput
+  with 4 slots on CPU.
 - **Live runner keeps finished work.** A timeout, crash or Ctrl-C mid-run now still writes
   summaries, results, gateway log and memo for every case finished (`partial: true`);
   default limit 24 h (was 8 h, which cut off the Jais run 3 cases from the end).
