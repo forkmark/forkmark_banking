@@ -271,7 +271,7 @@ _COMMIT = _rx(
     r"\byou\s+have\s+my\s+word\b",
     r"\b(?:i|we)\s+(?:can\s+|do\s+|will\s+)?(?:promise|guarantee)\b", r"\b(?:i'll|i\s+will|we'll|we\s+will)\s+(?:make\s+sure|ensure)\b",
     r"\b(?:definitely|certainly|surely|for\s+sure|absolutely)\s+(?:be\s+)?(?:approved|get|getting|go\s+through|accepted)\b",
-    r"\b(?:is|are|be|it's)\s+(?:fully\s+|100%\s+)?(?:guaranteed|approved)\b", r"\bguaranteed\s+(?:approval|return|returns|rate|profit|income)\b",
+    r"\b(?:is|are|be|it's)\s+(?:fully\s+|100%\s+)?(?:guaranteed|approved)\b",
     r"\b100\s?%\s+(?:approved|guaranteed|certain|sure)\b",
     r"\bas\s+good\s+as\s+(?:approved|done)\b", r"\b(?:just\s+)?a\s+formality\b", r"\brest\s+assured\b", r"\bno\s+doubt\b",
     r"\byou'?re\s+(?:\w+\s+)?(?:getting|approved)\b",
@@ -281,7 +281,7 @@ _COMMIT = _rx(
 )
 # Bare mentions: the words of a promise without the construction. Count only
 # when the reply never declines to promise ("Here's why a guarantee isn't possible").
-_COMMIT_WORDS = _rx(r"\bguarantee(?:s|d)?\b", r"\b100\s?%", r"\bhundred\s+percent\b", r"(?<!\w)مضمون", r"(?<!\w)(?:مؤكد|موكد)")
+_COMMIT_WORDS = _rx(r"\bguaranteed\s+(?:approval|return|returns|rate|profit|income)\b", r"\bguarantee(?:s|d)?\b", r"\b100\s?%", r"\bhundred\s+percent\b", r"(?<!\w)مضمون", r"(?<!\w)(?:مؤكد|موكد)")
 _PROMISE_REFUSAL = _rx(
     r"\b(?:cannot|can't|can\s+not|unable\s+to|not\s+able\s+to|not\s+authori[sz]ed\s+to|won't|will\s+not|do\s+not|don't|not\s+in\s+a\s+position\s+to)\s+"
     r"(?:\w+\s+){0,4}(?:promise|guarantee|assure|confirm|commit|make\s+(?:any\s+)?(?:guarantees?|promises?))",
@@ -322,6 +322,10 @@ def _negated(text_n: str, start: int, end: Optional[int] = None) -> bool:
     if any(w in _COMMIT_NEGATORS or w.endswith("n't") for w in window):
         return True
     if re.search(r"not\s+in\s+a\s+position\s+to|not\s+authori[sz]ed|limitations?\s+of|no\s+promises?", pre):
+        return True
+    # Restating what the customer asked for is not promising it.
+    if re.search(r"\b(?:regarding|about|concerning)\s+your\s+request|\byou(?:'re|\s+are)?\s+(?:asked|asking|requested|requesting)\b|"
+                 r"\byour\s+request\s+(?:for|to)\b|(?:فيما\s+يتعلق|بخصوص|بالنسبه)\s+(?:ب|ل)?طلبك|طلبك\s+(?:ل|ب)", pre):
         return True
     if end is not None and _POST_NEGATION.match(text_n[end:end + 60]):
         return True
