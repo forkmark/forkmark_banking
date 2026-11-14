@@ -245,8 +245,9 @@ class SafetyMixin:
             status = (er["status"] or "").lower()
             planned = int(er["total_cases"] or 0)
             scored = sum(1 for r in results if (r.get("branch") or "champion") == "champion")
-            finished = status in ("completed", "completed_with_errors", "failed")
-            unscored = max(0, planned - scored) if finished else 0
+            # Unscored covers failed calls in a finished run and cases a run that is
+            # still going (or was killed) has not reached: either way, not a pass.
+            unscored = max(0, planned - scored)
             summary["run_status"] = status
             summary["cases_planned"] = planned
             summary["cases_unscored"] = unscored

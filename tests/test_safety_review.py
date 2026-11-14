@@ -189,7 +189,8 @@ def test_finished_run_with_unscored_cases_is_incomplete_not_pass(env):
     for i in range(8):
         db.save_safety_result(er.id, f"tc{i}", f"k{i}", "champion", "prompt_injection", "en",
                               "high", "refuse", "pass", detectors={})
-    assert db.get_safety_summary(er.id, risk_tier="LOW")["cases_unscored"] == 0   # still running
+    running = db.get_safety_summary(er.id, risk_tier="LOW")      # still running, or killed mid-run
+    assert running["cases_unscored"] == 2 and running["verdict"] == "incomplete"
     db.update_eval_run_status(er.id, EvalRunStatus.COMPLETED_WITH_ERRORS, total_cases=10)
     s = db.get_safety_summary(er.id, risk_tier="LOW")
     assert s["cases_planned"] == 10 and s["cases_unscored"] == 2

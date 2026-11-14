@@ -99,15 +99,89 @@ def wait_for_server(port: int, proc: subprocess.Popen, timeout_s: int = 600) -> 
     raise TimeoutError("llama-server did not become healthy in time; see llama-server.log")
 
 
+def export_evidence(c, out: Path, env: dict, mid: str, suites: list, ids: list) -> None:
+    """Write everything the evidence database holds. Also used after a failure or
+    timeout, so finished work is never thrown away; the API marks unfinished runs
+    incomplete on its own."""
+    summaries, allres, pending = {}, {}, []
+    for suite, i in zip(suites, ids):
+        summaries[suite] = c.get(f"/api/safety/results/{i}").json()
+        items = c.get(f"/api/safety/results/{i}/items?limit=5000").json()
+        allres[suite] = items
+        pending += [dict(it, suite=suite) for it in items if it.get("verdict") == "needs_review"]
+    (out / "summaries.json").write_text(json.dumps(summaries, indent=2, ensure_ascii=False))
+    (out / "all_results.json").write_text(json.dumps(allres, indent=2, ensure_ascii=False))
+    (out / "needs_review.json").write_text(json.dumps(pending, indent=2, ensure_ascii=False))
+    gl, off = [], 0
+    while True:
+        page = c.get(f"/api/gateway/log?limit=1000&offset={off}").json()
+        gl += page
+        if len(page) < 1000:
+            break
+        off += 1000
+    (out / "gateway_log.json").write_text(json.dumps(gl, indent=2, ensure_ascii=False))
+    env["gateway_calls"] = len(gl)
+
+    body = {"framework": "cbuae"}
+    memo = c.post(f"/api/compliance/reports/{mid}", json=body)
+    (out / "memo.json").write_text(json.dumps(memo.json(), indent=2, ensure_ascii=False))
+    d = c.post(f"/api/compliance/reports/{mid}/docx", json=body)
+    if d.status_code == 200:
+        (out / "memo.docx").write_bytes(d.content)
+    h = c.post(f"/api/compliance/reports/{mid}/html", json=body)
+    if h.status_code == 200:
+        (out / "memo.html").write_text(h.text)
+    (out / "audit_verify.json").write_text(json.dumps(c.get("/api/audit/verify").json(), indent=2))
+
+    env["result"] = {s: {k: summaries[s].get(k) for k in
+                         ("verdict", "total_cases", "pooled_asr", "over_refusal_rate", "canary_leaks",
+                          "pii_leaks", "stress_flip_rate", "cases_needing_review")} for s in summaries}
+    env["memo_status"] = [memo.status_code, d.status_code, h.status_code]
+
+
+def export_only(run_dir: Path) -> int:
+    """Re-open a finished or interrupted run's evidence database and write its files.
+
+    Uses the verdicts already stored; nothing is re-scored. The export itself is
+    audit-logged in that database (an export key is created), and env.json records
+    when and with which commit the export was made.
+    """
+    env_path = run_dir / "env.json"
+    db_path = run_dir / "forkmark.db"
+    if not (env_path.exists() and db_path.exists()):
+        print(f"{run_dir} has no env.json / forkmark.db", file=sys.stderr)
+        return 2
+    env = json.loads(env_path.read_text())
+    runs = env.get("eval_run_ids") or {}
+    if not runs:
+        print("This run never started its suites; nothing to export.", file=sys.stderr)
+        return 2
+    os.environ["FM_DB_PATH"] = str(db_path)
+    os.environ.setdefault("FM_REQUIRE_UI_AUTH", "true")
+    sys.path.insert(0, str(REPO))
+    from fastapi.testclient import TestClient
+    import backend.deps as deps
+    import backend.main as app_main
+    with TestClient(app_main.app, raise_server_exceptions=False) as c:
+        _, key = deps.db.create_api_key("live-acceptance-export", role="admin")
+        c.headers["X-API-Key"] = key
+        export_evidence(c, run_dir, env, f"live-{env['label']}", list(runs), list(runs.values()))
+    env["exported_at"] = now()
+    env["export_commit"] = git_commit()
+    env_path.write_text(json.dumps(env, indent=2, ensure_ascii=False))
+    log(f"Exported {run_dir}: {json.dumps(env.get('result'), ensure_ascii=False)}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--label", required=True, help="Short name for this model, used for folder and model id")
-    ap.add_argument("--hf-repo", required=True)
-    ap.add_argument("--hf-file", required=True)
-    ap.add_argument("--vendor", required=True)
-    ap.add_argument("--family", required=True)
+    ap.add_argument("--label", default="", help="Short name for this model, used for folder and model id")
+    ap.add_argument("--hf-repo", default="")
+    ap.add_argument("--hf-file", default="")
+    ap.add_argument("--vendor", default="")
+    ap.add_argument("--family", default="")
     ap.add_argument("--licence", default="See model card")
-    ap.add_argument("--llama-server", required=True)
+    ap.add_argument("--llama-server", default="")
     ap.add_argument("--port", type=int, default=8089)
     ap.add_argument("--ctx", type=int, default=4096)
     ap.add_argument("--ngl", type=int, default=99, help="Layers on the GPU (0 = CPU only)")
@@ -115,8 +189,15 @@ def main() -> int:
     ap.add_argument("--suites", default="safety,stress")
     ap.add_argument("--limit", type=int, default=0, help="Use only the first N corpus cases (smoke test)")
     ap.add_argument("--out", default="", help="Output folder (default reports/acceptance/live/<date>/<label>)")
-    ap.add_argument("--max-hours", type=float, default=8.0)
+    ap.add_argument("--max-hours", type=float, default=24.0)
+    ap.add_argument("--export-only", default="", metavar="RUN_DIR",
+                    help="Write summaries/memo from an existing run folder's database without running a model")
     args = ap.parse_args()
+    if args.export_only:
+        return export_only(Path(args.export_only))
+    missing = [n for n in ("label", "hf_repo", "hf_file", "vendor", "family", "llama_server") if not getattr(args, n)]
+    if missing:
+        ap.error("missing: " + ", ".join("--" + m.replace("_", "-") for m in missing))
 
     stamp = datetime.now().strftime("%Y-%m-%d")
     out = Path(args.out) if args.out else REPO / "reports" / "acceptance" / "live" / stamp / args.label
@@ -226,59 +307,36 @@ def main() -> int:
             log(f"Validation started: {env['eval_run_ids']}")
 
             last = -1
-            while True:
-                sts = [c.get(f"/api/eval-runs/{i}").json().get("status") for i in ids]
-                rows = [r for i in ids for r in deps.db.list_safety_results(eval_run_id=i, limit=100000)]
-                done = len(rows)
-                bad = sum(1 for r in rows if (r.get("detectors") or {}).get("readable", {}).get("passed", True) is None)
-                if done >= 10 and bad / done > 0.5:
-                    raise RuntimeError(f"{bad} of the first {done} replies are not readable text; stopping the run")
-                if done != last and (done - last >= 10 or all(s in ("completed", "failed") for s in sts)):
-                    el = time.time() - t0
-                    log(f"{done} cases scored, {el/60:.1f} min elapsed, status {sts}")
-                    last = done
-                if all(s in ("completed", "failed") for s in sts):
-                    break
-                if time.time() - t0 > args.max_hours * 3600:
-                    raise TimeoutError(f"Run exceeded {args.max_hours} h")
-                time.sleep(15)
+            try:
+              while True:
+                  sts = [c.get(f"/api/eval-runs/{i}").json().get("status") for i in ids]
+                  rows = [r for i in ids for r in deps.db.list_safety_results(eval_run_id=i, limit=100000)]
+                  done = len(rows)
+                  bad = sum(1 for r in rows if (r.get("detectors") or {}).get("readable", {}).get("passed", True) is None)
+                  if done >= 10 and bad / done > 0.5:
+                      raise RuntimeError(f"{bad} of the first {done} replies are not readable text; stopping the run")
+                  if done != last and (done - last >= 10 or all(s in ("completed", "failed") for s in sts)):
+                      el = time.time() - t0
+                      log(f"{done} cases scored, {el/60:.1f} min elapsed, status {sts}")
+                      last = done
+                  if all(s in ("completed", "failed") for s in sts):
+                      break
+                  if time.time() - t0 > args.max_hours * 3600:
+                      raise TimeoutError(f"Run exceeded {args.max_hours} h")
+                  time.sleep(15)
+            except BaseException as exc:
+                env["error"] = f"{type(exc).__name__}: {exc}"
+                env["partial"] = True
+                log(f"Run stopped ({env['error']}); exporting the cases finished so far...")
+                try:
+                    export_evidence(c, out, env, mid, suites, ids)
+                except Exception as exp_exc:
+                    log(f"Export after failure also failed: {exp_exc}")
+                raise
             env["suite_seconds"] = round(time.time() - t0, 1)
             env["run_status"] = dict(zip(suites, sts))
 
-            summaries, allres, pending = {}, {}, []
-            for suite, i in zip(suites, ids):
-                summaries[suite] = c.get(f"/api/safety/results/{i}").json()
-                items = c.get(f"/api/safety/results/{i}/items?limit=5000").json()
-                allres[suite] = items
-                pending += [dict(it, suite=suite) for it in items if it.get("verdict") == "needs_review"]
-            (out / "summaries.json").write_text(json.dumps(summaries, indent=2, ensure_ascii=False))
-            (out / "all_results.json").write_text(json.dumps(allres, indent=2, ensure_ascii=False))
-            (out / "needs_review.json").write_text(json.dumps(pending, indent=2, ensure_ascii=False))
-            gl, off = [], 0
-            while True:
-                page = c.get(f"/api/gateway/log?limit=1000&offset={off}").json()
-                gl += page
-                if len(page) < 1000:
-                    break
-                off += 1000
-            (out / "gateway_log.json").write_text(json.dumps(gl, indent=2, ensure_ascii=False))
-            env["gateway_calls"] = len(gl)
-
-            body = {"framework": "cbuae"}
-            memo = c.post(f"/api/compliance/reports/{mid}", json=body)
-            (out / "memo.json").write_text(json.dumps(memo.json(), indent=2, ensure_ascii=False))
-            d = c.post(f"/api/compliance/reports/{mid}/docx", json=body)
-            if d.status_code == 200:
-                (out / "memo.docx").write_bytes(d.content)
-            h = c.post(f"/api/compliance/reports/{mid}/html", json=body)
-            if h.status_code == 200:
-                (out / "memo.html").write_text(h.text)
-            (out / "audit_verify.json").write_text(json.dumps(c.get("/api/audit/verify").json(), indent=2))
-
-            env["result"] = {s: {k: summaries[s].get(k) for k in
-                                 ("verdict", "total_cases", "pooled_asr", "over_refusal_rate", "canary_leaks",
-                                  "pii_leaks", "stress_flip_rate", "cases_needing_review")} for s in summaries}
-            env["memo_status"] = [memo.status_code, d.status_code, h.status_code]
+            export_evidence(c, out, env, mid, suites, ids)
         env["status"] = "completed"
         log(f"Done. Results: {json.dumps(env['result'], ensure_ascii=False)}")
         return 0

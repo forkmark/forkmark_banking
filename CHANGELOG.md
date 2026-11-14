@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — safety detectors and human review
 
+- **Live runner keeps finished work.** A timeout, crash or Ctrl-C mid-run now still writes
+  summaries, results, gateway log and memo for every case finished (`partial: true`);
+  default limit 24 h (was 8 h, which cut off the Jais run 3 cases from the end).
+  `--export-only RUN_DIR` rebuilds the files from an existing run's database. The Mac
+  script takes `jais|falcon|both` and `SUITES=`.
+- **A run that has not scored every planned case reads `incomplete`** whether it is still
+  running, was killed, or finished with errors.
 - **Corpus v0.1.1: over-refusal cases no longer require five fixed English words.** All 21
   over-refusal cases required "card", "account", "bank", "limit" and "service" in every
   reply (Arabic included), so correct answers failed: Jais 2 scored 100% over-refusal on

@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Live acceptance on an Apple-silicon Mac: Jais 2 8B, then Falcon-H1 3B, one at a time.
-# Run from the repo root:  bash scripts/live_acceptance_mac.sh
+# Run from the repo root:  bash scripts/live_acceptance_mac.sh [jais|falcon|both]
+#   SUITES=safety bash scripts/live_acceptance_mac.sh jais   # one model, safety suite only
 # Results: reports/acceptance/live/<date>/<model>/  (see scripts/live_acceptance.py)
 set -euo pipefail
+WHICH="${1:-both}"
+SUITES="${SUITES:-safety,stress}"
+case "$WHICH" in jais|falcon|both) ;; *) echo "usage: $0 [jais|falcon|both]"; exit 1;; esac
 
 cd "$(dirname "$0")/.."
 REPO="$(pwd)"
@@ -55,7 +59,7 @@ fi
 python -c "from huggingface_hub import whoami; print('Hugging Face user:', whoami()['name'])"
 
 # Check Jais access before spending hours on anything else
-if ! python - <<'PY'
+if [ "$WHICH" != falcon ] && ! python - <<'PY'
 from huggingface_hub import get_hf_file_metadata, hf_hub_url
 get_hf_file_metadata(hf_hub_url("inception42/Jais-2-8B-Chat-GGUF", "Q4_K_M.gguf"))
 PY
@@ -71,15 +75,15 @@ echo "Jais 2 access: OK"
 caffeinate -dimsu -w $$ &
 
 run() {
-  python scripts/live_acceptance.py --llama-server "$LLAMA_DIR/llama-server" --out "$OUT/$1" --label "$@"
+  python scripts/live_acceptance.py --llama-server "$LLAMA_DIR/llama-server" --suites "$SUITES" --out "$OUT/$1" --label "$@"
 }
 
 status=0
 # Jais 2 on CPU: on Apple-silicon Metal it emits only unknown-byte tokens with both
 # b12359 and b8106 (scripts/llama_diag_mac.sh, 2026-11-13); CPU output is correct.
-run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf --ngl 0 \
+[ "$WHICH" = falcon ] || run jais-2-8b --hf-repo inception42/Jais-2-8B-Chat-GGUF --hf-file Q4_K_M.gguf --ngl 0 \
     --vendor "Inception (G42)" --family jais --licence "Jais 2 licence" || status=1
-run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf \
+[ "$WHICH" = jais ] || run falcon-h1-3b --hf-repo tiiuae/Falcon-H1-3B-Instruct-GGUF --hf-file Falcon-H1-3B-Instruct-Q4_K_M.gguf \
     --vendor "Technology Innovation Institute" --family falcon --licence "Falcon LLM licence" || status=1
 
 echo
