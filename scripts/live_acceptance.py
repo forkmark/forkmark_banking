@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 def now() -> str:
@@ -97,6 +98,21 @@ def wait_for_server(port: int, proc: subprocess.Popen, timeout_s: int = 600) -> 
             pass
         time.sleep(2)
     raise TimeoutError("llama-server did not become healthy in time; see llama-server.log")
+
+
+class WatchdogStop(RuntimeError):
+    """The health check found the pipeline broken; the run stops so it can be fixed."""
+
+
+def notify(title: str, text: str) -> None:
+    """Best-effort desktop notification and terminal bell."""
+    print("\a", end="", flush=True)
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(["osascript", "-e", f"display notification {json.dumps(text[:200])} "
+                            f"with title {json.dumps(title)} sound name \"Basso\""], timeout=10)
+        except Exception:
+            pass
 
 
 def export_evidence(c, out: Path, env: dict, mid: str, suites: list, ids: list) -> None:
@@ -192,6 +208,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="Use only the first N corpus cases (smoke test)")
     ap.add_argument("--out", default="", help="Output folder (default reports/acceptance/live/<date>/<label>)")
     ap.add_argument("--max-hours", type=float, default=24.0)
+    ap.add_argument("--check-minutes", type=float, default=30.0,
+                    help="Health check interval; the run stops itself if the pipeline looks broken")
     ap.add_argument("--export-only", default="", metavar="RUN_DIR",
                     help="Write summaries/memo from an existing run folder's database without running a model")
     args = ap.parse_args()
@@ -305,32 +323,59 @@ def main() -> int:
             if v.status_code >= 300:
                 raise RuntimeError(f"validation-runs returned {v.status_code}: {v.text[:500]}")
             ids = v.json()["eval_run_ids"]
+            env["cases_planned"] = len(c.get(f"/api/test-sets/{ts_id}").json().get("cases", []))
             env["eval_run_ids"] = dict(zip(suites, ids))
             save_env()
             log(f"Validation started: {env['eval_run_ids']}")
 
             last = -1
+            from live_watchdog import assess, collect
+            next_check = time.time() + args.check_minutes * 60
+            last_check_ts, scored_at_check, history = now(), 0, []
             try:
-              while True:
-                  sts = [c.get(f"/api/eval-runs/{i}").json().get("status") for i in ids]
-                  rows = [r for i in ids for r in deps.db.list_safety_results(eval_run_id=i, limit=100000)]
-                  done = len(rows)
-                  bad = sum(1 for r in rows if (r.get("detectors") or {}).get("readable", {}).get("passed", True) is None)
-                  if done >= 10 and bad / done > 0.5:
-                      raise RuntimeError(f"{bad} of the first {done} replies are not readable text; stopping the run")
-                  if done != last and (done - last >= 10 or all(s in ("completed", "failed") for s in sts)):
-                      el = time.time() - t0
-                      log(f"{done} cases scored, {el/60:.1f} min elapsed, status {sts}")
-                      last = done
-                  if all(s in ("completed", "failed") for s in sts):
-                      break
-                  if time.time() - t0 > args.max_hours * 3600:
-                      raise TimeoutError(f"Run exceeded {args.max_hours} h")
-                  time.sleep(15)
+                while True:
+                    sts = [c.get(f"/api/eval-runs/{i}").json().get("status") for i in ids]
+                    rows = [r for i in ids for r in deps.db.list_safety_results(eval_run_id=i, limit=100000)]
+                    done = len(rows)
+                    bad = sum(1 for r in rows if (r.get("detectors") or {}).get("readable", {}).get("passed", True) is None)
+                    if done >= 10 and bad / done > 0.5:
+                        raise WatchdogStop(f"{bad} of the first {done} replies are not readable text")
+                    if done != last and (done - last >= 10 or all(s in ("completed", "failed") for s in sts)):
+                        log(f"{done} cases scored, {(time.time() - t0) / 60:.1f} min elapsed, status {sts}")
+                        last = done
+                    if all(s in ("completed", "failed") for s in sts):
+                        break
+                    if time.time() >= next_check:
+                        m = collect(deps.db, ids, since_ts=last_check_ts)
+                        problems = assess(m, scored_at_check)
+                        el_h = (time.time() - t0) / 3600
+                        rate = m["scored"] / el_h if el_h else 0
+                        planned = len(ids) * int(env.get("cases_planned") or 240)
+                        eta_h = round((planned - m["scored"]) / rate, 2) if rate else None
+                        history.append({"at": now(), "elapsed_h": round(el_h, 2), "eta_h": eta_h,
+                                        "problems": problems, **m})
+                        (out / "watchdog.json").write_text(json.dumps(
+                            {"status": "stopped" if problems else "healthy", "checks": history},
+                            indent=2, ensure_ascii=False))
+                        log(f"Health check: {'PROBLEM' if problems else 'ok'} | {m['scored']} scored, "
+                            f"{m['errors_since_last']}/{m['calls_since_last']} call errors, verdicts {m['verdicts']}"
+                            + (f", about {eta_h:.1f} h to go" if eta_h else ""))
+                        if problems:
+                            notify("ForkMark run stopped", problems[0])
+                            raise WatchdogStop(" | ".join(problems))
+                        last_check_ts, scored_at_check = now(), m["scored"]
+                        next_check = time.time() + args.check_minutes * 60
+                    if time.time() - t0 > args.max_hours * 3600:
+                        raise TimeoutError(f"Run exceeded {args.max_hours} h")
+                    time.sleep(15)
             except BaseException as exc:
                 env["error"] = f"{type(exc).__name__}: {exc}"
                 env["partial"] = True
                 log(f"Run stopped ({env['error']}); exporting the cases finished so far...")
+                if not isinstance(exc, WatchdogStop) or not history or not history[-1]["problems"]:
+                    notify("ForkMark run stopped", env["error"])
+                    (out / "watchdog.json").write_text(json.dumps(
+                        {"status": "stopped", "reason": env["error"], "checks": history}, indent=2, ensure_ascii=False))
                 try:
                     export_evidence(c, out, env, mid, suites, ids)
                 except Exception as exp_exc:

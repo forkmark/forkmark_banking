@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — safety detectors and human review
 
+- **Live runs check their own health every 30 minutes** (`--check-minutes`) and stop
+  themselves, keeping all finished work, when the pipeline looks broken: no progress,
+  >10% failed model calls, >20% unreadable replies, system prompts or documents not
+  delivered (<95%), >60% word-for-word identical replies, >75% sent to review, or a whole
+  category failing on one test-set rule. Each check targets a failure a real run hit.
+  A genuinely bad model is not stopped. Status and every check's numbers go to
+  `watchdog.json`; on a stop the Mac shows a notification.
 - **Suites can run several cases at once.** `FM_SUITE_CONCURRENCY` (default 1, unchanged
   behaviour) runs that many cases in parallel; the connector's `max_concurrency` still caps
   calls at the gateway, and one broken case no longer aborts the rest. Same verdicts as
